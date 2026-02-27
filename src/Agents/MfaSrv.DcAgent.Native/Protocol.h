@@ -34,6 +34,12 @@
 #define PROTO_FIELD_REASON      "reason"
 #define PROTO_FIELD_TIMEOUT     "timeoutMs"
 
+// Auth decision codes (must match C# AuthDecision enum)
+#define MFASRV_DECISION_ALLOW       0
+#define MFASRV_DECISION_REQUIRE_MFA 1
+#define MFASRV_DECISION_DENY        2
+#define MFASRV_DECISION_PENDING     3
+
 // Auth protocol values
 #define PROTO_AUTH_KERBEROS 1
 #define PROTO_AUTH_NTLM     2

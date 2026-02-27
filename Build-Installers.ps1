@@ -101,7 +101,7 @@ function Write-Skip([string]$Message) {
 function Find-MSBuild {
     $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path $vswhere) {
-        $installPath = & $vswhere -latest -requires Microsoft.Component.MSBuild -property installationPath 2>$null
+        $installPath = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild -property installationPath 2>$null
         if ($installPath) {
             $msbuild = Join-Path $installPath "MSBuild\Current\Bin\amd64\MSBuild.exe"
             if (Test-Path $msbuild) { return $msbuild }

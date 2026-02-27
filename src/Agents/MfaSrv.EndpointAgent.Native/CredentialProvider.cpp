@@ -4,6 +4,7 @@
 
 // INITGUID must come before any header that uses DEFINE_GUID
 #include <initguid.h>
+#include <cguid.h>
 
 #include "CredentialProvider.h"
 #include "NamedPipeClient.h"

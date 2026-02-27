@@ -5,7 +5,11 @@
 // Communicates with the MfaSrv Endpoint Agent service via named pipe.
 
 #define WIN32_LEAN_AND_MEAN
+#define WIN32_NO_STATUS
 #include <windows.h>
+#undef WIN32_NO_STATUS
+#include <ntstatus.h>
+#include <objbase.h>
 #include <credentialprovider.h>
 #include <shlguid.h>
 #include <ntsecapi.h>
@@ -113,8 +117,7 @@ private:
 // MfaSrvCredential
 // Implements: ICredentialProviderCredential, IConnectableCredentialProviderCredential
 // ---------------------------------------------------------------------------
-class MfaSrvCredential : public ICredentialProviderCredential,
-                          public IConnectableCredentialProviderCredential
+class MfaSrvCredential : public IConnectableCredentialProviderCredential
 {
 public:
     MfaSrvCredential();

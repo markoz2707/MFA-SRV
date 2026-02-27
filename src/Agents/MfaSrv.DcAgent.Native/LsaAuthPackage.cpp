@@ -69,7 +69,7 @@ NTSTATUS NTAPI MfaSrv_CallPackage(
     PNTSTATUS ProtocolStatus
 );
 
-NTSTATUS NTAPI MfaSrv_LogonTerminated(PLUID LogonId);
+VOID NTAPI MfaSrv_LogonTerminated(PLUID LogonId);
 
 NTSTATUS NTAPI MfaSrv_CallPackageUntrusted(
     PLSA_CLIENT_REQUEST ClientRequest,
@@ -327,16 +327,17 @@ NTSTATUS NTAPI MfaSrv_CallPackage(
 // -----------------------------------------------------------
 // LogonTerminated - cleanup when a logon session ends
 // -----------------------------------------------------------
-NTSTATUS NTAPI MfaSrv_LogonTerminated(PLUID LogonId)
+VOID NTAPI MfaSrv_LogonTerminated(PLUID LogonId)
 {
-    SAFE_NTSTATUS_BEGIN
-
-    UNREFERENCED_PARAMETER(LogonId);
-
-    // Could notify DC Agent about session termination here
-    return STATUS_SUCCESS;
-
-    SAFE_NTSTATUS_END("MfaSrv_LogonTerminated")
+    __try
+    {
+        UNREFERENCED_PARAMETER(LogonId);
+        // Could notify DC Agent about session termination here
+    }
+    __except(MfaSrvExceptionFilter(GetExceptionCode(), "MfaSrv_LogonTerminated"))
+    {
+        // Never crash
+    }
 }
 
 

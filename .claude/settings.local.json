@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet build MfaSrv.sln 2>&1)",
+      "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet test tests/MfaSrv.Tests.Unit/MfaSrv.Tests.Unit.csproj --no-build --verbosity normal 2>&1)",
+      "Bash(head:*)"
+    ]
+  }
+}

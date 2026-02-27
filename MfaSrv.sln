@@ -1,144 +1,188 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11519.219 insiders
 MinimumVisualStudioVersion = 10.0.40219.1
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{A1000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Server", "Server", "{A2000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Agents", "Agents", "{A3000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Providers", "Providers", "{A4000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{A5000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Core", "src\Core\MfaSrv.Core\MfaSrv.Core.csproj", "{B1000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Cryptography", "src\Core\MfaSrv.Cryptography\MfaSrv.Cryptography.csproj", "{B2000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Protocol", "src\Core\MfaSrv.Protocol\MfaSrv.Protocol.csproj", "{B3000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Server", "src\Server\MfaSrv.Server\MfaSrv.Server.csproj", "{B4000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.DcAgent", "src\Agents\MfaSrv.DcAgent\MfaSrv.DcAgent.csproj", "{B5000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MfaSrv.DcAgent.Native", "src\Agents\MfaSrv.DcAgent.Native\MfaSrv.DcAgent.Native.vcxproj", "{B6000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.EndpointAgent", "src\Agents\MfaSrv.EndpointAgent\MfaSrv.EndpointAgent.csproj", "{B7000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MfaSrv.EndpointAgent.Native", "src\Agents\MfaSrv.EndpointAgent.Native\MfaSrv.EndpointAgent.Native.vcxproj", "{B8000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.Totp", "src\Providers\MfaSrv.Provider.Totp\MfaSrv.Provider.Totp.csproj", "{C1000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.Push", "src\Providers\MfaSrv.Provider.Push\MfaSrv.Provider.Push.csproj", "{C2000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.Fido2", "src\Providers\MfaSrv.Provider.Fido2\MfaSrv.Provider.Fido2.csproj", "{C3000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.FortiToken", "src\Providers\MfaSrv.Provider.FortiToken\MfaSrv.Provider.FortiToken.csproj", "{C4000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.Sms", "src\Providers\MfaSrv.Provider.Sms\MfaSrv.Provider.Sms.csproj", "{C5000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Provider.Email", "src\Providers\MfaSrv.Provider.Email\MfaSrv.Provider.Email.csproj", "{C6000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Tests.Unit", "tests\MfaSrv.Tests.Unit\MfaSrv.Tests.Unit.csproj", "{D1000000-0000-0000-0000-000000000001}"
 EndProject
-
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MfaSrv.Tests.Integration", "tests\MfaSrv.Tests.Integration\MfaSrv.Tests.Integration.csproj", "{D2000000-0000-0000-0000-000000000001}"
 EndProject
-
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
-		Release|Any CPU = Release|Any CPU
 		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{B1000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B1000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B1000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B1000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B1000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B1000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{B2000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B2000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B2000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B2000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B2000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{B3000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B3000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B3000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B3000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B3000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B3000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B3000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B3000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{B4000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B4000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B4000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B4000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B4000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B4000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{B5000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B5000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B5000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B5000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B5000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B5000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
+		{B6000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{B6000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|x64
 		{B6000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|x64
 		{B6000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|x64
+		{B6000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|x64
+		{B6000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|x64
 		{B6000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|x64
 		{B6000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|x64
 		{B7000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B7000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B7000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{B7000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B7000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{B7000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
+		{B8000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{B8000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|x64
 		{B8000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|x64
 		{B8000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|x64
+		{B8000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|x64
+		{B8000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|x64
 		{B8000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|x64
 		{B8000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|x64
 		{C1000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C1000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C1000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C1000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C1000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C1000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C2000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C2000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C2000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C2000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C2000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C2000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C3000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C3000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C3000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C3000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C3000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C4000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C4000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C4000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C4000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C4000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C4000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C4000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C4000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C5000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C5000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C5000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C5000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C5000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C5000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{C6000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C6000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C6000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{C6000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C6000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{C6000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{D1000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D1000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D1000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{D1000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D1000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{D1000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
 		{D2000000-0000-0000-0000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D2000000-0000-0000-0000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D2000000-0000-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D2000000-0000-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|Any CPU
 		{D2000000-0000-0000-0000-000000000001}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D2000000-0000-0000-0000-000000000001}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D2000000-0000-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|Any CPU
+		{D2000000-0000-0000-0000-000000000001}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{B1000000-0000-0000-0000-000000000001} = {A1000000-0000-0000-0000-000000000001}

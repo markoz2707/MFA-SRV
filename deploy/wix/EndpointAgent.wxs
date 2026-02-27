@@ -8,7 +8,7 @@
     - MfaSrvCredentialProvider.dll as a registered COM Credential Provider
     - appsettings.json to ProgramData\MfaSrv\EndpointAgent\ (preserved on upgrade)
 
-  Build:  wix build -o MfaSrv.EndpointAgent.msi EndpointAgent.wxs -ext WixToolset.Util.wixext
+  Build:  wix build -o MfaSrv.EndpointAgent.msi EndpointAgent.wxs -ext WixToolset.Util.wixext -d PublishDir=...\publish\EndpointAgent -d NativeDir=...\native -d Version=1.0.0.0
 -->
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -19,8 +19,8 @@
        ====================================================================== -->
   <Package Name="MfaSrv Endpoint Agent"
            Manufacturer="MfaSrv"
-           Version="1.0.0.0"
-           UpgradeCode="E2A00000-EP01-4A6E-9F00-MFASRV000002"
+           Version="$(var.Version)"
+           UpgradeCode="E2A00000-E901-4A6E-9F00-A1FA5EA00002"
            Scope="perMachine"
            Compressed="yes"
            InstallerVersion="500">
@@ -67,10 +67,10 @@
     </StandardDirectory>
 
     <!-- ====================================================================
-         Component: Main service executable and dependencies
+         Component: Main service executable (carries ServiceInstall)
          ==================================================================== -->
     <ComponentGroup Id="ServiceComponents" Directory="ENDPOINTAGENTFOLDER">
-      <Component Id="ServiceExecutable" Guid="F2A00000-EP01-0001-0000-MFASRV000001" Bitness="always64">
+      <Component Id="ServiceExecutable" Guid="F2A00000-E901-0001-0000-A1FA5EA00001" Bitness="always64">
         <File Id="MfaSrvEndpointAgentExe"
               Source="$(var.PublishDir)\MfaSrv.EndpointAgent.exe"
               KeyPath="yes" />
@@ -100,31 +100,12 @@
                         Wait="yes" />
       </Component>
 
-      <!-- Runtime files -->
-      <Component Id="RuntimeFiles" Guid="F2A00000-EP01-0002-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvEndpointAgentDepsJson"
-              Source="$(var.PublishDir)\MfaSrv.EndpointAgent.deps.json" />
-        <File Id="MfaSrvEndpointAgentRuntimeConfigJson"
-              Source="$(var.PublishDir)\MfaSrv.EndpointAgent.runtimeconfig.json"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="CoreDll" Guid="F2A00000-EP01-0003-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvCoreDll"
-              Source="$(var.PublishDir)\MfaSrv.Core.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="CryptoDll" Guid="F2A00000-EP01-0004-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvCryptographyDll"
-              Source="$(var.PublishDir)\MfaSrv.Cryptography.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="ProtocolDll" Guid="F2A00000-EP01-0005-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvProtocolDll"
-              Source="$(var.PublishDir)\MfaSrv.Protocol.dll"
-              KeyPath="yes" />
+      <!-- All published runtime files (DLLs, deps, runtimeconfig, etc.) -->
+      <Component Id="PublishedFiles" Guid="F2A00000-E901-0002-0000-A1FA5EA00001" Bitness="always64">
+        <Files Include="$(var.PublishDir)\**">
+          <Exclude Files="$(var.PublishDir)\MfaSrv.EndpointAgent.exe" />
+          <Exclude Files="$(var.PublishDir)\appsettings*.json" />
+        </Files>
       </Component>
     </ComponentGroup>
 
@@ -132,7 +113,7 @@
          Component: Credential Provider DLL -> System32 with COM registration
          ==================================================================== -->
     <ComponentGroup Id="CredentialProviderComponents" Directory="System64Folder">
-      <Component Id="CredProvDll" Guid="F2A00000-EP01-0010-0000-MFASRV000001" Bitness="always64">
+      <Component Id="CredProvDll" Guid="F2A00000-E901-0010-0000-A1FA5EA00001" Bitness="always64">
         <File Id="MfaSrvCredentialProviderDll"
               Source="$(var.NativeDir)\MfaSrvCredentialProvider.dll"
               KeyPath="yes" />
@@ -158,7 +139,7 @@
          Component: Configuration file (preserved across upgrades)
          ==================================================================== -->
     <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
-      <Component Id="AppSettingsConfig" Guid="F2A00000-EP01-0020-0000-MFASRV000001" NeverOverwrite="yes" Permanent="yes">
+      <Component Id="AppSettingsConfig" Guid="F2A00000-E901-0020-0000-A1FA5EA00001" NeverOverwrite="yes" Permanent="yes">
         <File Id="AppSettingsJson"
               Source="$(var.PublishDir)\appsettings.json"
               Name="appsettings.json"

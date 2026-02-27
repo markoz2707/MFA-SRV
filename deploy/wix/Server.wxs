@@ -9,7 +9,7 @@
     - appsettings.json (preserved on upgrade)
     - Firewall rules for HTTP (5080) and gRPC (5081)
 
-  Build:  wix build -o MfaSrv.Server.msi Server.wxs -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext
+  Build:  wix build -o MfaSrv.Server.msi Server.wxs -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext -d PublishDir=...\publish\Server -d Version=1.0.0.0
 -->
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -21,8 +21,8 @@
        ====================================================================== -->
   <Package Name="MfaSrv Server"
            Manufacturer="MfaSrv"
-           Version="1.0.0.0"
-           UpgradeCode="E3A00000-SV01-4A6E-9F00-MFASRV000003"
+           Version="$(var.Version)"
+           UpgradeCode="E3A00000-5A01-4A6E-9F00-A1FA5EA00003"
            Scope="perMachine"
            Compressed="yes"
            InstallerVersion="500">
@@ -68,10 +68,10 @@
     </StandardDirectory>
 
     <!-- ====================================================================
-         Component: Main server executable and dependencies
+         Component: Main server executable (carries ServiceInstall)
          ==================================================================== -->
     <ComponentGroup Id="ServerComponents" Directory="SERVERFOLDER">
-      <Component Id="ServerExecutable" Guid="F3A00000-SV01-0001-0000-MFASRV000001" Bitness="always64">
+      <Component Id="ServerExecutable" Guid="F3A00000-5A01-0001-0000-A1FA5EA00001" Bitness="always64">
         <File Id="MfaSrvServerExe"
               Source="$(var.PublishDir)\MfaSrv.Server.exe"
               KeyPath="yes" />
@@ -102,37 +102,12 @@
                         Wait="yes" />
       </Component>
 
-      <!-- Runtime files -->
-      <Component Id="RuntimeFiles" Guid="F3A00000-SV01-0002-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvServerDepsJson"
-              Source="$(var.PublishDir)\MfaSrv.Server.deps.json" />
-        <File Id="MfaSrvServerRuntimeConfigJson"
-              Source="$(var.PublishDir)\MfaSrv.Server.runtimeconfig.json"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="CoreDll" Guid="F3A00000-SV01-0003-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvCoreDll"
-              Source="$(var.PublishDir)\MfaSrv.Core.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="CryptoDll" Guid="F3A00000-SV01-0004-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvCryptographyDll"
-              Source="$(var.PublishDir)\MfaSrv.Cryptography.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="ProtocolDll" Guid="F3A00000-SV01-0005-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvProtocolDll"
-              Source="$(var.PublishDir)\MfaSrv.Protocol.dll"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="TotpProviderDll" Guid="F3A00000-SV01-0006-0000-MFASRV000001" Bitness="always64">
-        <File Id="MfaSrvProviderTotpDll"
-              Source="$(var.PublishDir)\MfaSrv.Provider.Totp.dll"
-              KeyPath="yes" />
+      <!-- All published runtime files (DLLs, deps, runtimeconfig, wwwroot, etc.) -->
+      <Component Id="PublishedFiles" Guid="F3A00000-5A01-0002-0000-A1FA5EA00001" Bitness="always64">
+        <Files Include="$(var.PublishDir)\**">
+          <Exclude Files="$(var.PublishDir)\MfaSrv.Server.exe" />
+          <Exclude Files="$(var.PublishDir)\appsettings*.json" />
+        </Files>
       </Component>
     </ComponentGroup>
 
@@ -140,7 +115,7 @@
          Component: Data directory and SQLite database path
          ==================================================================== -->
     <ComponentGroup Id="DataComponents" Directory="DATAFOLDER">
-      <Component Id="DataDirectory" Guid="F3A00000-SV01-0011-0000-MFASRV000001">
+      <Component Id="DataDirectory" Guid="F3A00000-5A01-0011-0000-A1FA5EA00001">
         <CreateFolder>
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
@@ -152,7 +127,7 @@
          Component: Configuration file (preserved across upgrades)
          ==================================================================== -->
     <ComponentGroup Id="ConfigComponents" Directory="DATAFOLDER">
-      <Component Id="AppSettingsConfig" Guid="F3A00000-SV01-0020-0000-MFASRV000001" NeverOverwrite="yes" Permanent="yes">
+      <Component Id="AppSettingsConfig" Guid="F3A00000-5A01-0020-0000-A1FA5EA00001" NeverOverwrite="yes" Permanent="yes">
         <File Id="AppSettingsJson"
               Source="$(var.PublishDir)\appsettings.json"
               Name="appsettings.json"
@@ -164,7 +139,7 @@
          Component: Firewall rules
          ==================================================================== -->
     <ComponentGroup Id="FirewallComponents" Directory="SERVERFOLDER">
-      <Component Id="FirewallHttp" Guid="F3A00000-SV01-0030-0000-MFASRV000001">
+      <Component Id="FirewallHttp" Guid="F3A00000-5A01-0030-0000-A1FA5EA00001">
         <fw:FirewallException Id="MfaSrvHttpIn"
                               Name="MfaSrv Server HTTP (TCP 5080)"
                               Description="Allow inbound HTTP connections to MfaSrv Server REST API and admin portal."
@@ -174,7 +149,7 @@
                               Profile="domain" />
       </Component>
 
-      <Component Id="FirewallGrpc" Guid="F3A00000-SV01-0031-0000-MFASRV000001">
+      <Component Id="FirewallGrpc" Guid="F3A00000-5A01-0031-0000-A1FA5EA00001">
         <fw:FirewallException Id="MfaSrvGrpcIn"
                               Name="MfaSrv Server gRPC (TCP 5081)"
                               Description="Allow inbound gRPC connections from MfaSrv DC and endpoint agents."

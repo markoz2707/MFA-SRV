@@ -95,6 +95,9 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors("AdminPortal");
 
+// Serve admin portal SPA from wwwroot/
+app.UseStaticFiles();
+
 // Prometheus metrics endpoint
 app.UseHttpMetrics();
 app.MapMetrics("/metrics");
@@ -124,6 +127,9 @@ app.MapGet("/status", (LeaderElectionService leader) => Results.Ok(new
     isLeader = leader.IsLeader,
     version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0"
 }));
+
+// Fallback for admin portal SPA routes
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

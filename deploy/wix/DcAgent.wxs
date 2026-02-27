@@ -37,7 +37,7 @@
          Public properties (configurable via msiexec or UI)
          ==================================================================== -->
     <Property Id="CENTRALSERVERURL" Value="https://mfasrv-server:5081" Secure="yes" />
-    <Property Id="AGENTID" Value="" Secure="yes" />
+    <Property Id="AGENTID" Secure="yes" />
     <Property Id="FAILOVERMODE" Value="FailOpen" Secure="yes" />
 
     <!-- ====================================================================
@@ -99,12 +99,10 @@
       </Component>
 
       <!-- All published runtime files (DLLs, deps, runtimeconfig, etc.) -->
-      <Component Id="PublishedFiles" Guid="F1A00000-DC01-0002-0000-A1FA5EA00001" Bitness="always64">
-        <Files Include="$(var.PublishDir)\**">
-          <Exclude Files="$(var.PublishDir)\MfaSrv.DcAgent.exe" />
-          <Exclude Files="$(var.PublishDir)\appsettings*.json" />
-        </Files>
-      </Component>
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\MfaSrv.DcAgent.exe" />
+        <Exclude Files="$(var.PublishDir)\appsettings*.json" />
+      </Files>
     </ComponentGroup>
 
     <!-- ====================================================================

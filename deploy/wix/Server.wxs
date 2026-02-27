@@ -39,8 +39,8 @@
          Public properties (configurable via msiexec or UI)
          ==================================================================== -->
     <Property Id="DB_CONNECTION_STRING" Value="Data Source=C:\ProgramData\MfaSrv\Server\mfasrv.db" Secure="yes" />
-    <Property Id="LDAP_SERVER" Value="" Secure="yes" />
-    <Property Id="BIND_DN" Value="" Secure="yes" />
+    <Property Id="LDAP_SERVER" Secure="yes" />
+    <Property Id="BIND_DN" Secure="yes" />
     <Property Id="HTTP_PORT" Value="5080" Secure="yes" />
     <Property Id="GRPC_PORT" Value="5081" Secure="yes" />
 
@@ -103,12 +103,10 @@
       </Component>
 
       <!-- All published runtime files (DLLs, deps, runtimeconfig, wwwroot, etc.) -->
-      <Component Id="PublishedFiles" Guid="F3A00000-5A01-0002-0000-A1FA5EA00001" Bitness="always64">
-        <Files Include="$(var.PublishDir)\**">
-          <Exclude Files="$(var.PublishDir)\MfaSrv.Server.exe" />
-          <Exclude Files="$(var.PublishDir)\appsettings*.json" />
-        </Files>
-      </Component>
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\MfaSrv.Server.exe" />
+        <Exclude Files="$(var.PublishDir)\appsettings*.json" />
+      </Files>
     </ComponentGroup>
 
     <!-- ====================================================================

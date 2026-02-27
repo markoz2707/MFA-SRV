@@ -16,6 +16,9 @@ obj/
 **/packages/*
 !**/packages/repositories.config
 
+## Build artifacts
+artifacts/
+
 ## Build results
 [Dd]ebug/
 [Rr]elease/

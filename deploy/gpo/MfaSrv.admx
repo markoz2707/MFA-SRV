@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MFA-SRV Group Policy Administrative Template
+  Manages configuration for DC Agent and Endpoint Agent components.
+  Registry base: HKLM\SOFTWARE\Policies\MfaSrv
+-->
+<policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   revision="1.0"
+                   schemaVersion="1.0"
+                   xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+
+  <policyNamespaces>
+    <target prefix="mfasrv" namespace="MfaSrv.Policies" />
+    <using prefix="windows" namespace="Microsoft.Policies.Windows" />
+  </policyNamespaces>
+
+  <resources minRequiredRevision="1.0" />
+
+  <supportedOn>
+    <definitions>
+      <definition name="SUPPORTED_WindowsServer2016"
+                  displayName="$(string.SUPPORTED_WindowsServer2016)" />
+    </definitions>
+  </supportedOn>
+
+  <categories>
+    <category name="CAT_MfaSrv"
+              displayName="$(string.CAT_MfaSrv)"
+              explainText="$(string.CAT_MfaSrv_Help)" />
+
+    <category name="CAT_DcAgent"
+              displayName="$(string.CAT_DcAgent)"
+              explainText="$(string.CAT_DcAgent_Help)">
+      <parentCategory ref="CAT_MfaSrv" />
+    </category>
+
+    <category name="CAT_EndpointAgent"
+              displayName="$(string.CAT_EndpointAgent)"
+              explainText="$(string.CAT_EndpointAgent_Help)">
+      <parentCategory ref="CAT_MfaSrv" />
+    </category>
+  </categories>
+
+  <policies>
+
+    <!-- ================================================================== -->
+    <!-- DC Agent Settings                                                  -->
+    <!-- ================================================================== -->
+
+    <!-- DC Agent: Central Server URL -->
+    <policy name="POL_DcAgent_CentralServerUrl"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_CentralServerUrl)"
+            explainText="$(string.POL_DcAgent_CentralServerUrl_Help)"
+            presentation="$(presentation.POL_DcAgent_CentralServerUrl)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="CentralServerUrl">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_CentralServerUrl"
+              valueName="CentralServerUrl"
+              maxLength="1024" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Agent ID -->
+    <policy name="POL_DcAgent_AgentId"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_AgentId)"
+            explainText="$(string.POL_DcAgent_AgentId_Help)"
+            presentation="$(presentation.POL_DcAgent_AgentId)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="AgentId">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_AgentId"
+              valueName="AgentId"
+              maxLength="256" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Named Pipe Name -->
+    <policy name="POL_DcAgent_PipeName"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_PipeName)"
+            explainText="$(string.POL_DcAgent_PipeName_Help)"
+            presentation="$(presentation.POL_DcAgent_PipeName)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="PipeName">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_PipeName"
+              valueName="PipeName"
+              maxLength="256" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Pipe Timeout -->
+    <policy name="POL_DcAgent_PipeTimeoutMs"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_PipeTimeoutMs)"
+            explainText="$(string.POL_DcAgent_PipeTimeoutMs_Help)"
+            presentation="$(presentation.POL_DcAgent_PipeTimeoutMs)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="PipeTimeoutMs">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_DcAgent_PipeTimeoutMs"
+                 valueName="PipeTimeoutMs"
+                 minValue="500"
+                 maxValue="10000" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Heartbeat Interval Seconds -->
+    <policy name="POL_DcAgent_HeartbeatIntervalSeconds"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_HeartbeatIntervalSeconds)"
+            explainText="$(string.POL_DcAgent_HeartbeatIntervalSeconds_Help)"
+            presentation="$(presentation.POL_DcAgent_HeartbeatIntervalSeconds)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="HeartbeatIntervalSeconds">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_DcAgent_HeartbeatIntervalSeconds"
+                 valueName="HeartbeatIntervalSeconds"
+                 minValue="10"
+                 maxValue="300" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Policy Sync Interval Seconds -->
+    <policy name="POL_DcAgent_PolicySyncIntervalSeconds"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_PolicySyncIntervalSeconds)"
+            explainText="$(string.POL_DcAgent_PolicySyncIntervalSeconds_Help)"
+            presentation="$(presentation.POL_DcAgent_PolicySyncIntervalSeconds)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="PolicySyncIntervalSeconds">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_DcAgent_PolicySyncIntervalSeconds"
+                 valueName="PolicySyncIntervalSeconds"
+                 minValue="10"
+                 maxValue="600" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Session TTL Minutes -->
+    <policy name="POL_DcAgent_SessionTtlMinutes"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_SessionTtlMinutes)"
+            explainText="$(string.POL_DcAgent_SessionTtlMinutes_Help)"
+            presentation="$(presentation.POL_DcAgent_SessionTtlMinutes)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="SessionTtlMinutes">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_DcAgent_SessionTtlMinutes"
+                 valueName="SessionTtlMinutes"
+                 minValue="5"
+                 maxValue="1440" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Failover Mode -->
+    <policy name="POL_DcAgent_FailoverMode"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_FailoverMode)"
+            explainText="$(string.POL_DcAgent_FailoverMode_Help)"
+            presentation="$(presentation.POL_DcAgent_FailoverMode)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="FailoverMode">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <enum id="ENUM_DcAgent_FailoverMode"
+              valueName="FailoverMode">
+          <item displayName="$(string.FailoverMode_FailOpen)">
+            <value>
+              <string>FailOpen</string>
+            </value>
+          </item>
+          <item displayName="$(string.FailoverMode_FailClose)">
+            <value>
+              <string>FailClose</string>
+            </value>
+          </item>
+          <item displayName="$(string.FailoverMode_CachedOnly)">
+            <value>
+              <string>CachedOnly</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Cache Database Path -->
+    <policy name="POL_DcAgent_CacheDbPath"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_CacheDbPath)"
+            explainText="$(string.POL_DcAgent_CacheDbPath_Help)"
+            presentation="$(presentation.POL_DcAgent_CacheDbPath)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="CacheDbPath">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_CacheDbPath"
+              valueName="CacheDbPath"
+              maxLength="1024" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Certificate Path -->
+    <policy name="POL_DcAgent_CertificatePath"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_CertificatePath)"
+            explainText="$(string.POL_DcAgent_CertificatePath_Help)"
+            presentation="$(presentation.POL_DcAgent_CertificatePath)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="CertificatePath">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_CertificatePath"
+              valueName="CertificatePath"
+              maxLength="1024" />
+      </elements>
+    </policy>
+
+    <!-- DC Agent: Gossip Peers -->
+    <policy name="POL_DcAgent_GossipPeers"
+            class="Machine"
+            displayName="$(string.POL_DcAgent_GossipPeers)"
+            explainText="$(string.POL_DcAgent_GossipPeers_Help)"
+            presentation="$(presentation.POL_DcAgent_GossipPeers)"
+            key="SOFTWARE\Policies\MfaSrv\DcAgent"
+            valueName="GossipPeers">
+      <parentCategory ref="CAT_DcAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_DcAgent_GossipPeers"
+              valueName="GossipPeers"
+              maxLength="4096" />
+      </elements>
+    </policy>
+
+    <!-- ================================================================== -->
+    <!-- Endpoint Agent Settings                                            -->
+    <!-- ================================================================== -->
+
+    <!-- Endpoint Agent: Central Server URL -->
+    <policy name="POL_EndpointAgent_CentralServerUrl"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_CentralServerUrl)"
+            explainText="$(string.POL_EndpointAgent_CentralServerUrl_Help)"
+            presentation="$(presentation.POL_EndpointAgent_CentralServerUrl)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="CentralServerUrl">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_EndpointAgent_CentralServerUrl"
+              valueName="CentralServerUrl"
+              maxLength="1024" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Agent ID -->
+    <policy name="POL_EndpointAgent_AgentId"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_AgentId)"
+            explainText="$(string.POL_EndpointAgent_AgentId_Help)"
+            presentation="$(presentation.POL_EndpointAgent_AgentId)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="AgentId">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_EndpointAgent_AgentId"
+              valueName="AgentId"
+              maxLength="256" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Named Pipe Name -->
+    <policy name="POL_EndpointAgent_PipeName"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_PipeName)"
+            explainText="$(string.POL_EndpointAgent_PipeName_Help)"
+            presentation="$(presentation.POL_EndpointAgent_PipeName)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="PipeName">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_EndpointAgent_PipeName"
+              valueName="PipeName"
+              maxLength="256" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Pipe Timeout -->
+    <policy name="POL_EndpointAgent_PipeTimeoutMs"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_PipeTimeoutMs)"
+            explainText="$(string.POL_EndpointAgent_PipeTimeoutMs_Help)"
+            presentation="$(presentation.POL_EndpointAgent_PipeTimeoutMs)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="PipeTimeoutMs">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_EndpointAgent_PipeTimeoutMs"
+                 valueName="PipeTimeoutMs"
+                 minValue="500"
+                 maxValue="10000" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Heartbeat Interval Seconds -->
+    <policy name="POL_EndpointAgent_HeartbeatIntervalSeconds"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_HeartbeatIntervalSeconds)"
+            explainText="$(string.POL_EndpointAgent_HeartbeatIntervalSeconds_Help)"
+            presentation="$(presentation.POL_EndpointAgent_HeartbeatIntervalSeconds)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="HeartbeatIntervalSeconds">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_EndpointAgent_HeartbeatIntervalSeconds"
+                 valueName="HeartbeatIntervalSeconds"
+                 minValue="10"
+                 maxValue="300" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Session TTL Minutes -->
+    <policy name="POL_EndpointAgent_SessionTtlMinutes"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_SessionTtlMinutes)"
+            explainText="$(string.POL_EndpointAgent_SessionTtlMinutes_Help)"
+            presentation="$(presentation.POL_EndpointAgent_SessionTtlMinutes)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="SessionTtlMinutes">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <decimal id="DEC_EndpointAgent_SessionTtlMinutes"
+                 valueName="SessionTtlMinutes"
+                 minValue="5"
+                 maxValue="1440" />
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Failover Mode -->
+    <policy name="POL_EndpointAgent_FailoverMode"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_FailoverMode)"
+            explainText="$(string.POL_EndpointAgent_FailoverMode_Help)"
+            presentation="$(presentation.POL_EndpointAgent_FailoverMode)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="FailoverMode">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <enum id="ENUM_EndpointAgent_FailoverMode"
+              valueName="FailoverMode">
+          <item displayName="$(string.FailoverMode_FailOpen)">
+            <value>
+              <string>FailOpen</string>
+            </value>
+          </item>
+          <item displayName="$(string.FailoverMode_FailClose)">
+            <value>
+              <string>FailClose</string>
+            </value>
+          </item>
+          <item displayName="$(string.FailoverMode_CachedOnly)">
+            <value>
+              <string>CachedOnly</string>
+            </value>
+          </item>
+        </enum>
+      </elements>
+    </policy>
+
+    <!-- Endpoint Agent: Certificate Path -->
+    <policy name="POL_EndpointAgent_CertificatePath"
+            class="Machine"
+            displayName="$(string.POL_EndpointAgent_CertificatePath)"
+            explainText="$(string.POL_EndpointAgent_CertificatePath_Help)"
+            presentation="$(presentation.POL_EndpointAgent_CertificatePath)"
+            key="SOFTWARE\Policies\MfaSrv\EndpointAgent"
+            valueName="CertificatePath">
+      <parentCategory ref="CAT_EndpointAgent" />
+      <supportedOn ref="SUPPORTED_WindowsServer2016" />
+      <elements>
+        <text id="TXT_EndpointAgent_CertificatePath"
+              valueName="CertificatePath"
+              maxLength="1024" />
+      </elements>
+    </policy>
+
+  </policies>
+</policyDefinitions>

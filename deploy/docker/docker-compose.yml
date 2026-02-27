@@ -1,0 +1,62 @@
+# =============================================================================
+# MfaSrv Central Server - Docker Compose (Development)
+#
+# Usage:
+#   docker compose -f deploy/docker/docker-compose.yml up -d
+#   docker compose -f deploy/docker/docker-compose.yml logs -f
+#   docker compose -f deploy/docker/docker-compose.yml down
+#
+# Build from repo root:
+#   docker compose -f deploy/docker/docker-compose.yml up -d --build
+# =============================================================================
+
+services:
+  mfasrv-server:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: mfasrv-server
+    restart: unless-stopped
+    ports:
+      - "5080:5080"   # HTTP - REST API and admin portal
+      - "5081:5081"   # gRPC - agent communication
+    volumes:
+      - mfasrv-data:/data
+    environment:
+      # ASP.NET Core
+      - ASPNETCORE_ENVIRONMENT=Development
+
+      # Database - SQLite stored on the persistent volume
+      - ConnectionStrings__DefaultConnection=Data Source=/data/mfasrv.db
+
+      # Kestrel endpoints
+      - Kestrel__Endpoints__Http__Url=http://0.0.0.0:5080
+      - Kestrel__Endpoints__Grpc__Url=http://0.0.0.0:5081
+      - Kestrel__Endpoints__Grpc__Protocols=Http2
+
+      # LDAP settings (configure for your environment)
+      - Ldap__Server=
+      - Ldap__Port=389
+      - Ldap__BaseDn=
+      - Ldap__BindDn=
+      - Ldap__BindPassword=
+      - Ldap__UseSsl=false
+
+      # CORS origins for admin portal development
+      - Cors__Origins__0=http://localhost:3000
+      - Cors__Origins__1=http://localhost:5173
+
+      # Logging
+      - Logging__LogLevel__Default=Debug
+      - Logging__LogLevel__Microsoft.AspNetCore=Information
+      - Logging__LogLevel__Microsoft.EntityFrameworkCore=Information
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mfasrv-data:
+    driver: local

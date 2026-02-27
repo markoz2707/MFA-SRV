@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+option csharp_namespace = "MfaSrv.Protocol.DcAgent";
+
+package mfasrv.dcagent;
+
+import "google/protobuf/timestamp.proto";
+
+// Service exposed by DC Agent for management commands from Central Server
+service DcAgentManagement {
+  // Force revoke a session on this DC
+  rpc RevokeSession (RevokeSessionRequest) returns (RevokeSessionResponse);
+
+  // Force policy refresh
+  rpc RefreshPolicies (RefreshPoliciesRequest) returns (RefreshPoliciesResponse);
+
+  // Get agent diagnostics
+  rpc GetDiagnostics (DiagnosticsRequest) returns (DiagnosticsResponse);
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+  string user_id = 2;
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+}
+
+message RefreshPoliciesRequest {
+  bool full_refresh = 1;
+}
+
+message RefreshPoliciesResponse {
+  bool success = 1;
+  int32 policies_loaded = 2;
+}
+
+message DiagnosticsRequest {}
+
+message DiagnosticsResponse {
+  string agent_id = 1;
+  string hostname = 2;
+  string version = 3;
+  int64 active_sessions = 4;
+  int64 cached_policies = 5;
+  int64 total_auth_count = 6;
+  bool central_server_connected = 7;
+  int32 connected_peers = 8;
+  double uptime_hours = 9;
+  google.protobuf.Timestamp timestamp = 10;
+}

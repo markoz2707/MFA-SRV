@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>MfaSrv.Tests.Unit</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+    <PackageReference Include="FluentAssertions" Version="6.12.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\MfaSrv.Core\MfaSrv.Core.csproj" />
+    <ProjectReference Include="..\..\src\Core\MfaSrv.Cryptography\MfaSrv.Cryptography.csproj" />
+    <ProjectReference Include="..\..\src\Core\MfaSrv.Protocol\MfaSrv.Protocol.csproj" />
+    <ProjectReference Include="..\..\src\Server\MfaSrv.Server\MfaSrv.Server.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.Totp\MfaSrv.Provider.Totp.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.Sms\MfaSrv.Provider.Sms.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.Email\MfaSrv.Provider.Email.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.Push\MfaSrv.Provider.Push.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.Fido2\MfaSrv.Provider.Fido2.csproj" />
+    <ProjectReference Include="..\..\src\Providers\MfaSrv.Provider.FortiToken\MfaSrv.Provider.FortiToken.csproj" />
+    <ProjectReference Include="..\..\src\Agents\MfaSrv.DcAgent\MfaSrv.DcAgent.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+  </ItemGroup>
+
+</Project>

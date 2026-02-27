@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  MfaSrv Endpoint Agent - WiX v4 Installer Definition
+
+  Installs:
+    - MfaSrv.EndpointAgent.exe as a Windows Service (auto-start, LocalSystem)
+    - MfaSrvCredentialProvider.dll as a registered COM Credential Provider
+    - appsettings.json to ProgramData\MfaSrv\EndpointAgent\ (preserved on upgrade)
+
+  Build:  wix build -o MfaSrv.EndpointAgent.msi EndpointAgent.wxs -ext WixToolset.Util.wixext
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- ======================================================================
+       Package metadata
+       ====================================================================== -->
+  <Package Name="MfaSrv Endpoint Agent"
+           Manufacturer="MfaSrv"
+           Version="1.0.0.0"
+           UpgradeCode="E2A00000-EP01-4A6E-9F00-MFASRV000002"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="MfaSrv Endpoint Agent - Windows Credential Provider and gRPC relay service for MFA on workstation logon." />
+
+    <!-- Major upgrade: removes previous versions before installing -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of MfaSrv Endpoint Agent is already installed."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ====================================================================
+         Public properties (configurable via msiexec or UI)
+         ==================================================================== -->
+    <Property Id="CENTRALSERVERURL" Value="https://mfasrv-server:5081" Secure="yes" />
+    <Property Id="AGENTID" Value="" Secure="yes" />
+    <Property Id="FAILOVERMODE" Value="FailOpen" Secure="yes" />
+
+    <!-- Credential Provider COM CLSID -->
+    <?define CredProvCLSID = "{A0E9E5B0-1234-4567-89AB-CDEF01234567}" ?>
+
+    <!-- ====================================================================
+         Launch conditions
+         ==================================================================== -->
+    <Launch Condition="Privileged" Message="Administrator privileges are required to install the MfaSrv Endpoint Agent." />
+    <Launch Condition="VersionNT64" Message="MfaSrv Endpoint Agent requires a 64-bit version of Windows." />
+
+    <!-- ====================================================================
+         Directory structure
+         ==================================================================== -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MfaSrv">
+        <Directory Id="ENDPOINTAGENTFOLDER" Name="EndpointAgent" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="System64Folder" />
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="MFASRV_APPDATA" Name="MfaSrv">
+        <Directory Id="CONFIGFOLDER" Name="EndpointAgent" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ====================================================================
+         Component: Main service executable and dependencies
+         ==================================================================== -->
+    <ComponentGroup Id="ServiceComponents" Directory="ENDPOINTAGENTFOLDER">
+      <Component Id="ServiceExecutable" Guid="F2A00000-EP01-0001-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvEndpointAgentExe"
+              Source="$(var.PublishDir)\MfaSrv.EndpointAgent.exe"
+              KeyPath="yes" />
+
+        <!-- Windows Service definition -->
+        <ServiceInstall Id="EndpointAgentService"
+                        Name="MfaSrvEndpointAgent"
+                        DisplayName="MfaSrv Endpoint Agent"
+                        Description="MfaSrv endpoint agent - communicates with the credential provider DLL via named pipe and relays MFA challenges to the central server."
+                        Type="ownProcess"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Vital="yes">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="none"
+                              RestartServiceDelayInSeconds="30"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+
+        <ServiceControl Id="EndpointAgentServiceControl"
+                        Name="MfaSrvEndpointAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- Runtime files -->
+      <Component Id="RuntimeFiles" Guid="F2A00000-EP01-0002-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvEndpointAgentDepsJson"
+              Source="$(var.PublishDir)\MfaSrv.EndpointAgent.deps.json" />
+        <File Id="MfaSrvEndpointAgentRuntimeConfigJson"
+              Source="$(var.PublishDir)\MfaSrv.EndpointAgent.runtimeconfig.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CoreDll" Guid="F2A00000-EP01-0003-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCoreDll"
+              Source="$(var.PublishDir)\MfaSrv.Core.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CryptoDll" Guid="F2A00000-EP01-0004-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCryptographyDll"
+              Source="$(var.PublishDir)\MfaSrv.Cryptography.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ProtocolDll" Guid="F2A00000-EP01-0005-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvProtocolDll"
+              Source="$(var.PublishDir)\MfaSrv.Protocol.dll"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Credential Provider DLL -> System32 with COM registration
+         ==================================================================== -->
+    <ComponentGroup Id="CredentialProviderComponents" Directory="System64Folder">
+      <Component Id="CredProvDll" Guid="F2A00000-EP01-0010-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCredentialProviderDll"
+              Source="$(var.NativeDir)\MfaSrvCredentialProvider.dll"
+              KeyPath="yes" />
+
+        <!-- COM InprocServer32 registration (HKCR\CLSID\{guid}\InprocServer32) -->
+        <RegistryKey Root="HKCR" Key="CLSID\$(var.CredProvCLSID)">
+          <RegistryValue Type="string" Value="MfaSrv Credential Provider" />
+          <RegistryKey Key="InprocServer32">
+            <RegistryValue Type="string" Value="[System64Folder]MfaSrvCredentialProvider.dll" />
+            <RegistryValue Name="ThreadingModel" Type="string" Value="Apartment" />
+          </RegistryKey>
+        </RegistryKey>
+
+        <!-- Register as a Windows Credential Provider -->
+        <RegistryKey Root="HKLM"
+                     Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\Credential Providers\$(var.CredProvCLSID)">
+          <RegistryValue Type="string" Value="MfaSrv Credential Provider" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Configuration file (preserved across upgrades)
+         ==================================================================== -->
+    <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
+      <Component Id="AppSettingsConfig" Guid="F2A00000-EP01-0020-0000-MFASRV000001" NeverOverwrite="yes" Permanent="yes">
+        <File Id="AppSettingsJson"
+              Source="$(var.PublishDir)\appsettings.json"
+              Name="appsettings.json"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Custom actions: write runtime configuration from MSI properties
+         ==================================================================== -->
+    <SetProperty Id="WriteConfigCA"
+                 Before="WriteConfigCA"
+                 Sequence="execute"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[CONFIGFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.EndpointAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.EndpointAgent.AgentId = '[AGENTID]'; $cfg.EndpointAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[CONFIGFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+
+    <CustomAction Id="WriteConfigCA"
+                  BinaryRef="Wix4UtilCA_X64"
+                  DllEntry="WixQuietExec64"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <!-- ====================================================================
+         Feature tree
+         ==================================================================== -->
+    <Feature Id="ProductFeature" Title="MfaSrv Endpoint Agent" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ServiceComponents" />
+      <ComponentGroupRef Id="CredentialProviderComponents" />
+      <ComponentGroupRef Id="ConfigComponents" />
+    </Feature>
+
+    <!-- ====================================================================
+         Install sequence
+         ==================================================================== -->
+    <InstallExecuteSequence>
+      <Custom Action="WriteConfigCA" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

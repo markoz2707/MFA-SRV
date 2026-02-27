@@ -1,0 +1,7 @@
+; MfaSrv LSA Authentication Package
+; Exported functions required by LSA
+
+LIBRARY MfaSrvLsaAuth
+
+EXPORTS
+    SpLsaModeInitialize

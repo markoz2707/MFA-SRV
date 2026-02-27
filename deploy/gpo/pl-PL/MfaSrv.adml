@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MFA-SRV Group Policy Administrative Template - Polski (pl-PL)
+  Plik zasobow jezykowych dla MfaSrv.admx
+-->
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                           revision="1.0"
+                           schemaVersion="1.0"
+                           xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+
+  <displayName>Konfiguracja MFA-SRV</displayName>
+  <description>Szablon administracyjny do zarzadzania konfiguracjami agentow MFA-SRV na maszynach dolaczonych do domeny.</description>
+
+  <resources>
+    <stringTable>
+
+      <!-- Supported On -->
+      <string id="SUPPORTED_WindowsServer2016">Windows Server 2016 lub nowszy</string>
+
+      <!-- Categories -->
+      <string id="CAT_MfaSrv">Konfiguracja MFA-SRV</string>
+      <string id="CAT_MfaSrv_Help">Zawiera zasady konfiguracji agentow uwierzytelniania wieloskladnikowego MFA-SRV wdrozonych w srodowisku korporacyjnym.</string>
+
+      <string id="CAT_DcAgent">Ustawienia agenta kontrolera domeny</string>
+      <string id="CAT_DcAgent_Help">Ustawienia konfiguracyjne agenta MFA-SRV kontrolera domeny. Agent DC przechwytuje zadania uwierzytelniania na kontrolerach domeny i wymusza zasady uwierzytelniania wieloskladnikowego.</string>
+
+      <string id="CAT_EndpointAgent">Ustawienia agenta punktu koncowego</string>
+      <string id="CAT_EndpointAgent_Help">Ustawienia konfiguracyjne agenta MFA-SRV punktu koncowego. Agent punktu koncowego dziala na stacjach roboczych i serwerach czlonkowskich, wymuszajac uwierzytelnianie wieloskladnikowe na poziomie urzadzenia koncowego.</string>
+
+      <!-- Failover Mode Enum Values (shared) -->
+      <string id="FailoverMode_FailOpen">Tryb otwarty - Zezwol na uwierzytelnianie, gdy serwer centralny jest nieosiagalny</string>
+      <string id="FailoverMode_FailClose">Tryb zamkniety - Odmow uwierzytelniania, gdy serwer centralny jest nieosiagalny</string>
+      <string id="FailoverMode_CachedOnly">Tylko pamiec podreczna - Uzyj tylko zapisanych decyzji, gdy serwer centralny jest nieosiagalny</string>
+
+      <!-- ============================================================== -->
+      <!-- DC Agent Policy Strings                                        -->
+      <!-- ============================================================== -->
+
+      <!-- DC Agent: Central Server URL -->
+      <string id="POL_DcAgent_CentralServerUrl">Adres URL serwera centralnego</string>
+      <string id="POL_DcAgent_CentralServerUrl_Help">Okresla adres URL centralnego serwera MFA-SRV, z ktorym agent kontrolera domeny komunikuje sie w celu podejmowania decyzji uwierzytelniania i pobierania zasad.
+
+Adres URL musi zawierac schemat protokolu (https://) oraz numer portu, jesli rozni sie od domyslnego.
+
+Wartosc domyslna: https://mfasrv-server:5081
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym (appsettings.json).</string>
+
+      <!-- DC Agent: Agent ID -->
+      <string id="POL_DcAgent_AgentId">Identyfikator agenta</string>
+      <string id="POL_DcAgent_AgentId_Help">Okresla unikalny identyfikator tej instancji agenta kontrolera domeny. Identyfikator agenta jest uzywany przez serwer centralny do identyfikacji i sledzenia poszczegolnych instalacji agentow w domenie.
+
+Kazdy kontroler domeny z uruchomionym agentem DC musi miec unikalny identyfikator agenta. Jesli pole pozostanie puste, agent wygeneruje identyfikator na podstawie nazwy maszyny podczas pierwszego uruchomienia.
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Named Pipe Name -->
+      <string id="POL_DcAgent_PipeName">Nazwa potoku nazwanego</string>
+      <string id="POL_DcAgent_PipeName_Help">Okresla nazwe potoku nazwanego systemu Windows uzywanego do komunikacji miedzyprocesowej miedzy usluga agenta DC a komponentem filtru uwierzytelniania na kontrolerze domeny.
+
+Ta wartosc musi odpowiadac nazwie potoku oczekiwanej przez biblioteke DLL filtru uwierzytelniania MFA-SRV. Zmiana tej wartosci bez aktualizacji komponentu filtru uniemozliwi przechwytywanie wyzwan MFA.
+
+Wartosc domyslna: MfaSrvDcAgent
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Pipe Timeout -->
+      <string id="POL_DcAgent_PipeTimeoutMs">Limit czasu potoku (milisekundy)</string>
+      <string id="POL_DcAgent_PipeTimeoutMs_Help">Okresla maksymalny czas w milisekundach, przez ktory agent DC bedzie czekal na odpowiedz z polaczenia potoku nazwanego przed przekroczeniem limitu czasu.
+
+Zwiekszenie tej wartosci moze byc konieczne na mocno obciazonych kontrolerach domeny, jednak zbyt wysokie wartosci moga opozniac odpowiedzi uwierzytelniania.
+
+Minimum: 500 ms
+Maksimum: 10000 ms
+Domyslnie: 3000 ms
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Heartbeat Interval Seconds -->
+      <string id="POL_DcAgent_HeartbeatIntervalSeconds">Interwal sygnalu zycia (sekundy)</string>
+      <string id="POL_DcAgent_HeartbeatIntervalSeconds_Help">Okresla interwal w sekundach, z jakim agent DC wysyla sygnaly zycia do serwera centralnego. Sygnaly zycia informuja, ze agent jest operacyjny, i umozliwiaja serwerowi centralnemu monitorowanie stanu agentow w domenie.
+
+Nizsze wartosci zapewniaja szybsze wykrywanie awarii agentow, ale zwiekszaja ruch sieciowy. Wyzsze wartosci zmniejszaja obciazenie, ale opozniaja wykrywanie awarii w centralnej konsoli zarzadzania.
+
+Minimum: 10 sekund
+Maksimum: 300 sekund
+Domyslnie: 30 sekund
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Policy Sync Interval Seconds -->
+      <string id="POL_DcAgent_PolicySyncIntervalSeconds">Interwal synchronizacji zasad (sekundy)</string>
+      <string id="POL_DcAgent_PolicySyncIntervalSeconds_Help">Okresla interwal w sekundach, z jakim agent DC synchronizuje definicje zasad MFA z serwera centralnego do lokalnej pamieci podrecznej.
+
+Nizsze wartosci zapewniaja szybsze stosowanie zmian zasad na kontrolerach domeny, ale zwiekszaja obciazenie serwera centralnego. Wyzsze wartosci zmniejszaja obciazenie serwera, ale opozniaja propagacje zasad.
+
+Minimum: 10 sekund
+Maksimum: 600 sekund
+Domyslnie: 60 sekund
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Session TTL Minutes -->
+      <string id="POL_DcAgent_SessionTtlMinutes">Czas zycia sesji (minuty)</string>
+      <string id="POL_DcAgent_SessionTtlMinutes_Help">Okresla czas zycia w minutach dla tokenow sesji MFA przechowywanych w pamieci podrecznej na kontrolerze domeny. Po pomyslnym ukonczeniu wyzwania MFA przez uzytkownika, wynikowa sesja jest przechowywana lokalnie przez ten czas. Kolejne proby uwierzytelnienia w okresie TTL nie beda wymagaly dodatkowego wyzwania MFA.
+
+Nizsze wartosci zwiekszaja bezpieczenstwo, wymagajac czestszych wyzwan MFA. Wyzsze wartosci poprawiaja komfort uzytkowania, zmniejszajac liczbe monitow MFA w ciagu dnia pracy.
+
+Minimum: 5 minut
+Maksimum: 1440 minut (24 godziny)
+Domyslnie: 480 minut (8 godzin)
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Failover Mode -->
+      <string id="POL_DcAgent_FailoverMode">Tryb awaryjny</string>
+      <string id="POL_DcAgent_FailoverMode_Help">Okresla zachowanie agenta DC, gdy centralny serwer MFA-SRV jest nieosiagalny. To ustawienie bezposrednio wplywa na poziom bezpieczenstwa i kompromis miedzy dostepnoscia a bezpieczenstwem podczas awarii serwera.
+
+Dostepne tryby:
+
+- Tryb otwarty (Fail Open): Zadania uwierzytelniania sa akceptowane bez weryfikacji MFA, gdy serwer centralny jest nieosiagalny. Ten tryb priorytetyzuje dostepnosc nad bezpieczenstwem i jest odpowiedni dla srodowisk, w ktorych ciaglosc uslug jest krytyczna.
+
+- Tryb zamkniety (Fail Close): Zadania uwierzytelniania sa odrzucane, gdy serwer centralny jest nieosiagalny. Ten tryb priorytetyzuje bezpieczenstwo nad dostepnoscia i powinien byc stosowany w srodowiskach o wysokim poziomie bezpieczenstwa, gdzie nieautoryzowany dostep musi byc uniemozliwiony nawet kosztem przerwy w dzialaniu uslugi.
+
+- Tylko pamiec podreczna (Cached Only): Honorowane sa tylko wczesniej zapisane decyzje MFA, gdy serwer centralny jest nieosiagalny. Uzytkownicy, ktorzy niedawno ukonczyli MFA, moga kontynuowac uwierzytelnianie, ale nowe lub wygasle sesje sa odrzucane. Ten tryb zapewnia zrownowazone podejscie miedzy bezpieczenstwem a dostepnoscia.
+
+Domyslnie: Tryb otwarty
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Cache Database Path -->
+      <string id="POL_DcAgent_CacheDbPath">Sciezka bazy danych pamieci podrecznej</string>
+      <string id="POL_DcAgent_CacheDbPath_Help">Okresla sciezke pliku bazy danych SQLite uzywanej przez agenta DC do lokalnego przechowywania danych sesji MFA, definicji zasad i decyzji uwierzytelniania na kontrolerze domeny.
+
+Sciezka moze byc bezwzgledna (np. C:\ProgramData\MfaSrv\dcagent_cache.db) lub wzgledna wobec katalogu instalacji agenta. Konto uslugi agenta musi miec uprawnienia do odczytu i zapisu w tej lokalizacji.
+
+Wartosc domyslna: dcagent_cache.db (wzgledem katalogu instalacji agenta)
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Certificate Path -->
+      <string id="POL_DcAgent_CertificatePath">Sciezka certyfikatu</string>
+      <string id="POL_DcAgent_CertificatePath_Help">Okresla sciezke pliku certyfikatu klienta X.509 (format PFX/PKCS#12) uzywanego przez agenta DC do uwierzytelniania sie na centralnym serwerze MFA-SRV za pomoca wzajemnego TLS.
+
+Jesli pole jest puste, agent laczy sie z serwerem centralnym uzywajac jedynie TLS po stronie serwera, bez uwierzytelniania certyfikatem klienta. Gdy sciezka certyfikatu jest podana, certyfikat jest uzywany do wzajemnego uwierzytelniania TLS, zapewniajac silniejsza weryfikacje tozsamosci agenta.
+
+Konto uslugi agenta musi miec uprawnienia do odczytu tego pliku.
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- DC Agent: Gossip Peers -->
+      <string id="POL_DcAgent_GossipPeers">Wezly gossip</string>
+      <string id="POL_DcAgent_GossipPeers_Help">Okresla rozdzielona srednikami liste adresow URL wezlow partnerskich agentow DC dla protokolu gossip. Protokol gossip umozliwia agentom DC wspoldzielenie danych sesji MFA z pamieci podrecznej i stanu agentow bezposrednio miedzy kontrolerami domeny, zmniejszajac zaleznosc od serwera centralnego.
+
+Przyklad: https://dc01.contoso.com:5082;https://dc02.contoso.com:5082;https://dc03.contoso.com:5082
+
+Kazdy wpis musi byc prawidlowym adresem URL zawierajacym schemat protokolu i port. Jesli nie skonfigurowano zadnych wezlow partnerskich, protokol gossip jest wylaczony, a kazdy agent DC dziala niezaleznie w zakresie buforowania.
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- ============================================================== -->
+      <!-- Endpoint Agent Policy Strings                                  -->
+      <!-- ============================================================== -->
+
+      <!-- Endpoint Agent: Central Server URL -->
+      <string id="POL_EndpointAgent_CentralServerUrl">Adres URL serwera centralnego</string>
+      <string id="POL_EndpointAgent_CentralServerUrl_Help">Okresla adres URL centralnego serwera MFA-SRV, z ktorym agent punktu koncowego komunikuje sie w celu podejmowania decyzji uwierzytelniania i pobierania zasad.
+
+Adres URL musi zawierac schemat protokolu (https://) oraz numer portu, jesli rozni sie od domyslnego.
+
+Wartosc domyslna: https://mfasrv-server:5081
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym (appsettings.json).</string>
+
+      <!-- Endpoint Agent: Agent ID -->
+      <string id="POL_EndpointAgent_AgentId">Identyfikator agenta</string>
+      <string id="POL_EndpointAgent_AgentId_Help">Okresla unikalny identyfikator tej instancji agenta punktu koncowego. Identyfikator agenta jest uzywany przez serwer centralny do identyfikacji i sledzenia poszczegolnych instalacji agentow w domenie.
+
+Kazdy punkt koncowy z uruchomionym agentem musi miec unikalny identyfikator agenta. Jesli pole pozostanie puste, agent wygeneruje identyfikator na podstawie nazwy maszyny podczas pierwszego uruchomienia.
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Named Pipe Name -->
+      <string id="POL_EndpointAgent_PipeName">Nazwa potoku nazwanego</string>
+      <string id="POL_EndpointAgent_PipeName_Help">Okresla nazwe potoku nazwanego systemu Windows uzywanego do komunikacji miedzyprocesowej miedzy usluga agenta punktu koncowego a komponentem dostawcy powiadczen na stacji roboczej.
+
+Ta wartosc musi odpowiadac nazwie potoku oczekiwanej przez dostawce powiadczen MFA-SRV. Zmiana tej wartosci bez aktualizacji dostawcy powiadczen uniemozliwi przechwytywanie wyzwan MFA.
+
+Wartosc domyslna: MfaSrvEndpointAgent
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Pipe Timeout -->
+      <string id="POL_EndpointAgent_PipeTimeoutMs">Limit czasu potoku (milisekundy)</string>
+      <string id="POL_EndpointAgent_PipeTimeoutMs_Help">Okresla maksymalny czas w milisekundach, przez ktory agent punktu koncowego bedzie czekal na odpowiedz z polaczenia potoku nazwanego przed przekroczeniem limitu czasu.
+
+Zwiekszenie tej wartosci moze byc konieczne na wolniejszych urzadzeniach koncowych, jednak zbyt wysokie wartosci moga opozniac proces logowania.
+
+Minimum: 500 ms
+Maksimum: 10000 ms
+Domyslnie: 3000 ms
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Heartbeat Interval Seconds -->
+      <string id="POL_EndpointAgent_HeartbeatIntervalSeconds">Interwal sygnalu zycia (sekundy)</string>
+      <string id="POL_EndpointAgent_HeartbeatIntervalSeconds_Help">Okresla interwal w sekundach, z jakim agent punktu koncowego wysyla sygnaly zycia do serwera centralnego. Sygnaly zycia informuja, ze agent jest operacyjny, i umozliwiaja serwerowi centralnemu monitorowanie stanu agentow.
+
+Nizsze wartosci zapewniaja szybsze wykrywanie awarii agentow, ale zwiekszaja ruch sieciowy. Wyzsze wartosci zmniejszaja obciazenie, ale opozniaja wykrywanie awarii w centralnej konsoli zarzadzania.
+
+Minimum: 10 sekund
+Maksimum: 300 sekund
+Domyslnie: 30 sekund
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Session TTL Minutes -->
+      <string id="POL_EndpointAgent_SessionTtlMinutes">Czas zycia sesji (minuty)</string>
+      <string id="POL_EndpointAgent_SessionTtlMinutes_Help">Okresla czas zycia w minutach dla tokenow sesji MFA przechowywanych w pamieci podrecznej na urzadzeniu koncowym. Po pomyslnym ukonczeniu wyzwania MFA przez uzytkownika, wynikowa sesja jest przechowywana lokalnie przez ten czas. Kolejne proby uwierzytelnienia w okresie TTL nie beda wymagaly dodatkowego wyzwania MFA.
+
+Nizsze wartosci zwiekszaja bezpieczenstwo, wymagajac czestszych wyzwan MFA. Wyzsze wartosci poprawiaja komfort uzytkowania, zmniejszajac liczbe monitow MFA w ciagu dnia pracy.
+
+Minimum: 5 minut
+Maksimum: 1440 minut (24 godziny)
+Domyslnie: 480 minut (8 godzin)
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Failover Mode -->
+      <string id="POL_EndpointAgent_FailoverMode">Tryb awaryjny</string>
+      <string id="POL_EndpointAgent_FailoverMode_Help">Okresla zachowanie agenta punktu koncowego, gdy centralny serwer MFA-SRV jest nieosiagalny. To ustawienie bezposrednio wplywa na poziom bezpieczenstwa i kompromis miedzy dostepnoscia a bezpieczenstwem podczas awarii serwera.
+
+Dostepne tryby:
+
+- Tryb otwarty (Fail Open): Zadania uwierzytelniania sa akceptowane bez weryfikacji MFA, gdy serwer centralny jest nieosiagalny. Ten tryb priorytetyzuje dostepnosc nad bezpieczenstwem i jest odpowiedni dla mobilnych stacji roboczych, ktore czesto pracuja w trybie offline.
+
+- Tryb zamkniety (Fail Close): Zadania uwierzytelniania sa odrzucane, gdy serwer centralny jest nieosiagalny. Ten tryb priorytetyzuje bezpieczenstwo nad dostepnoscia i powinien byc stosowany na urzadzeniach koncowych przetwarzajacych dane wrazliwe, gdzie nieautoryzowany dostep musi byc uniemozliwiony.
+
+- Tylko pamiec podreczna (Cached Only): Honorowane sa tylko wczesniej zapisane decyzje MFA, gdy serwer centralny jest nieosiagalny. Uzytkownicy, ktorzy niedawno ukonczyli MFA, moga kontynuowac uwierzytelnianie, ale nowe lub wygasle sesje sa odrzucane. Ten tryb zapewnia zrownowazone podejscie miedzy bezpieczenstwem a dostepnoscia.
+
+Domyslnie: Tryb otwarty
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+      <!-- Endpoint Agent: Certificate Path -->
+      <string id="POL_EndpointAgent_CertificatePath">Sciezka certyfikatu</string>
+      <string id="POL_EndpointAgent_CertificatePath_Help">Okresla sciezke pliku certyfikatu klienta X.509 (format PFX/PKCS#12) uzywanego przez agenta punktu koncowego do uwierzytelniania sie na centralnym serwerze MFA-SRV za pomoca wzajemnego TLS.
+
+Jesli pole jest puste, agent laczy sie z serwerem centralnym uzywajac jedynie TLS po stronie serwera, bez uwierzytelniania certyfikatem klienta. Gdy sciezka certyfikatu jest podana, certyfikat jest uzywany do wzajemnego uwierzytelniania TLS, zapewniajac silniejsza weryfikacje tozsamosci agenta.
+
+Konto uslugi agenta musi miec uprawnienia do odczytu tego pliku.
+
+Jesli ta zasada nie jest skonfigurowana, agent uzywa wartosci zdefiniowanej w lokalnym pliku konfiguracyjnym.</string>
+
+    </stringTable>
+
+    <presentationTable>
+
+      <!-- ============================================================== -->
+      <!-- DC Agent Presentations                                         -->
+      <!-- ============================================================== -->
+
+      <presentation id="POL_DcAgent_CentralServerUrl">
+        <textBox refId="TXT_DcAgent_CentralServerUrl">
+          <label>Adres URL serwera centralnego:</label>
+          <defaultValue>https://mfasrv-server:5081</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_AgentId">
+        <textBox refId="TXT_DcAgent_AgentId">
+          <label>Identyfikator agenta:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PipeName">
+        <textBox refId="TXT_DcAgent_PipeName">
+          <label>Nazwa potoku nazwanego:</label>
+          <defaultValue>MfaSrvDcAgent</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PipeTimeoutMs">
+        <decimalTextBox refId="DEC_DcAgent_PipeTimeoutMs" defaultValue="3000" spinStep="100">Limit czasu potoku (ms):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_HeartbeatIntervalSeconds">
+        <decimalTextBox refId="DEC_DcAgent_HeartbeatIntervalSeconds" defaultValue="30" spinStep="5">Interwal sygnalu zycia (sekundy):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PolicySyncIntervalSeconds">
+        <decimalTextBox refId="DEC_DcAgent_PolicySyncIntervalSeconds" defaultValue="60" spinStep="10">Interwal synchronizacji zasad (sekundy):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_SessionTtlMinutes">
+        <decimalTextBox refId="DEC_DcAgent_SessionTtlMinutes" defaultValue="480" spinStep="15">Czas zycia sesji (minuty):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_FailoverMode">
+        <dropdownList refId="ENUM_DcAgent_FailoverMode" defaultItem="0">Tryb awaryjny:</dropdownList>
+      </presentation>
+
+      <presentation id="POL_DcAgent_CacheDbPath">
+        <textBox refId="TXT_DcAgent_CacheDbPath">
+          <label>Sciezka bazy danych pamieci podrecznej:</label>
+          <defaultValue>dcagent_cache.db</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_CertificatePath">
+        <textBox refId="TXT_DcAgent_CertificatePath">
+          <label>Sciezka certyfikatu:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_GossipPeers">
+        <textBox refId="TXT_DcAgent_GossipPeers">
+          <label>Wezly gossip (adresy URL rozdzielone srednikami):</label>
+        </textBox>
+      </presentation>
+
+      <!-- ============================================================== -->
+      <!-- Endpoint Agent Presentations                                   -->
+      <!-- ============================================================== -->
+
+      <presentation id="POL_EndpointAgent_CentralServerUrl">
+        <textBox refId="TXT_EndpointAgent_CentralServerUrl">
+          <label>Adres URL serwera centralnego:</label>
+          <defaultValue>https://mfasrv-server:5081</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_AgentId">
+        <textBox refId="TXT_EndpointAgent_AgentId">
+          <label>Identyfikator agenta:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_PipeName">
+        <textBox refId="TXT_EndpointAgent_PipeName">
+          <label>Nazwa potoku nazwanego:</label>
+          <defaultValue>MfaSrvEndpointAgent</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_PipeTimeoutMs">
+        <decimalTextBox refId="DEC_EndpointAgent_PipeTimeoutMs" defaultValue="3000" spinStep="100">Limit czasu potoku (ms):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_HeartbeatIntervalSeconds">
+        <decimalTextBox refId="DEC_EndpointAgent_HeartbeatIntervalSeconds" defaultValue="30" spinStep="5">Interwal sygnalu zycia (sekundy):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_SessionTtlMinutes">
+        <decimalTextBox refId="DEC_EndpointAgent_SessionTtlMinutes" defaultValue="480" spinStep="15">Czas zycia sesji (minuty):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_FailoverMode">
+        <dropdownList refId="ENUM_EndpointAgent_FailoverMode" defaultItem="0">Tryb awaryjny:</dropdownList>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_CertificatePath">
+        <textBox refId="TXT_EndpointAgent_CertificatePath">
+          <label>Sciezka certyfikatu:</label>
+        </textBox>
+      </presentation>
+
+    </presentationTable>
+
+  </resources>
+</policyDefinitionResources>

@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  MfaSrv Central Server - WiX v4 Installer Definition
+
+  Installs:
+    - MfaSrv.Server as a Windows Service (auto-start) or standalone application
+    - SQLite data directory at ProgramData\MfaSrv\Server\
+    - appsettings.json (preserved on upgrade)
+    - Firewall rules for HTTP (5080) and gRPC (5081)
+
+  Build:  wix build -o MfaSrv.Server.msi Server.wxs -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+
+  <!-- ======================================================================
+       Package metadata
+       ====================================================================== -->
+  <Package Name="MfaSrv Server"
+           Manufacturer="MfaSrv"
+           Version="1.0.0.0"
+           UpgradeCode="E3A00000-SV01-4A6E-9F00-MFASRV000003"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="MfaSrv Central Server - MFA policy engine, user directory sync, and gRPC hub for DC and endpoint agents." />
+
+    <!-- Major upgrade: removes previous versions before installing -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of MfaSrv Server is already installed."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ====================================================================
+         Public properties (configurable via msiexec or UI)
+         ==================================================================== -->
+    <Property Id="DB_CONNECTION_STRING" Value="Data Source=C:\ProgramData\MfaSrv\Server\mfasrv.db" Secure="yes" />
+    <Property Id="LDAP_SERVER" Value="" Secure="yes" />
+    <Property Id="BIND_DN" Value="" Secure="yes" />
+    <Property Id="HTTP_PORT" Value="5080" Secure="yes" />
+    <Property Id="GRPC_PORT" Value="5081" Secure="yes" />
+
+    <!-- Install mode: "service" or "standalone" -->
+    <Property Id="INSTALL_MODE" Value="service" Secure="yes" />
+
+    <!-- ====================================================================
+         Launch conditions
+         ==================================================================== -->
+    <Launch Condition="Privileged" Message="Administrator privileges are required to install MfaSrv Server." />
+
+    <!-- ====================================================================
+         Directory structure
+         ==================================================================== -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MfaSrv">
+        <Directory Id="SERVERFOLDER" Name="Server" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="MFASRV_APPDATA" Name="MfaSrv">
+        <Directory Id="DATAFOLDER" Name="Server" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ====================================================================
+         Component: Main server executable and dependencies
+         ==================================================================== -->
+    <ComponentGroup Id="ServerComponents" Directory="SERVERFOLDER">
+      <Component Id="ServerExecutable" Guid="F3A00000-SV01-0001-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvServerExe"
+              Source="$(var.PublishDir)\MfaSrv.Server.exe"
+              KeyPath="yes" />
+
+        <!-- Windows Service definition (conditioned on INSTALL_MODE) -->
+        <ServiceInstall Id="MfaSrvServerService"
+                        Name="MfaSrvServer"
+                        DisplayName="MfaSrv Server"
+                        Description="MfaSrv central MFA server - policy engine, user sync, audit logging, and gRPC endpoint for agent communication."
+                        Type="ownProcess"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Vital="yes"
+                        Arguments="--contentRoot &quot;[DATAFOLDER]&quot;">
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="none"
+                              RestartServiceDelayInSeconds="60"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+
+        <ServiceControl Id="MfaSrvServerServiceControl"
+                        Name="MfaSrvServer"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- Runtime files -->
+      <Component Id="RuntimeFiles" Guid="F3A00000-SV01-0002-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvServerDepsJson"
+              Source="$(var.PublishDir)\MfaSrv.Server.deps.json" />
+        <File Id="MfaSrvServerRuntimeConfigJson"
+              Source="$(var.PublishDir)\MfaSrv.Server.runtimeconfig.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CoreDll" Guid="F3A00000-SV01-0003-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCoreDll"
+              Source="$(var.PublishDir)\MfaSrv.Core.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CryptoDll" Guid="F3A00000-SV01-0004-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCryptographyDll"
+              Source="$(var.PublishDir)\MfaSrv.Cryptography.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ProtocolDll" Guid="F3A00000-SV01-0005-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvProtocolDll"
+              Source="$(var.PublishDir)\MfaSrv.Protocol.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="TotpProviderDll" Guid="F3A00000-SV01-0006-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvProviderTotpDll"
+              Source="$(var.PublishDir)\MfaSrv.Provider.Totp.dll"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Data directory and SQLite database path
+         ==================================================================== -->
+    <ComponentGroup Id="DataComponents" Directory="DATAFOLDER">
+      <Component Id="DataDirectory" Guid="F3A00000-SV01-0011-0000-MFASRV000001">
+        <CreateFolder>
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Configuration file (preserved across upgrades)
+         ==================================================================== -->
+    <ComponentGroup Id="ConfigComponents" Directory="DATAFOLDER">
+      <Component Id="AppSettingsConfig" Guid="F3A00000-SV01-0020-0000-MFASRV000001" NeverOverwrite="yes" Permanent="yes">
+        <File Id="AppSettingsJson"
+              Source="$(var.PublishDir)\appsettings.json"
+              Name="appsettings.json"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Firewall rules
+         ==================================================================== -->
+    <ComponentGroup Id="FirewallComponents" Directory="SERVERFOLDER">
+      <Component Id="FirewallHttp" Guid="F3A00000-SV01-0030-0000-MFASRV000001">
+        <fw:FirewallException Id="MfaSrvHttpIn"
+                              Name="MfaSrv Server HTTP (TCP 5080)"
+                              Description="Allow inbound HTTP connections to MfaSrv Server REST API and admin portal."
+                              Protocol="tcp"
+                              Port="[HTTP_PORT]"
+                              Scope="any"
+                              Profile="domain" />
+      </Component>
+
+      <Component Id="FirewallGrpc" Guid="F3A00000-SV01-0031-0000-MFASRV000001">
+        <fw:FirewallException Id="MfaSrvGrpcIn"
+                              Name="MfaSrv Server gRPC (TCP 5081)"
+                              Description="Allow inbound gRPC connections from MfaSrv DC and endpoint agents."
+                              Protocol="tcp"
+                              Port="[GRPC_PORT]"
+                              Scope="any"
+                              Profile="domain" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Custom actions: write runtime configuration from MSI properties
+         ==================================================================== -->
+    <SetProperty Id="WriteConfigCA"
+                 Before="WriteConfigCA"
+                 Sequence="execute"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[DATAFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.ConnectionStrings.DefaultConnection = '[DB_CONNECTION_STRING]'; if ('[LDAP_SERVER]') { $cfg.Ldap.Server = '[LDAP_SERVER]' }; if ('[BIND_DN]') { $cfg.Ldap.BindDn = '[BIND_DN]' }; $cfg.Kestrel.Endpoints.Http.Url = 'http://0.0.0.0:[HTTP_PORT]'; $cfg.Kestrel.Endpoints.Grpc.Url = 'http://0.0.0.0:[GRPC_PORT]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[DATAFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+
+    <CustomAction Id="WriteConfigCA"
+                  BinaryRef="Wix4UtilCA_X64"
+                  DllEntry="WixQuietExec64"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <!-- ====================================================================
+         Feature tree
+         ==================================================================== -->
+    <Feature Id="ProductFeature" Title="MfaSrv Server" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ServerComponents" />
+      <ComponentGroupRef Id="DataComponents" />
+      <ComponentGroupRef Id="ConfigComponents" />
+      <ComponentGroupRef Id="FirewallComponents" />
+    </Feature>
+
+    <!-- ====================================================================
+         Install sequence
+         ==================================================================== -->
+    <InstallExecuteSequence>
+      <Custom Action="WriteConfigCA" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

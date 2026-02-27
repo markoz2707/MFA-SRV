@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+option csharp_namespace = "MfaSrv.Protocol.Gossip";
+
+package mfasrv.gossip;
+
+import "google/protobuf/timestamp.proto";
+
+// DC Agent to DC Agent gossip service for session synchronization
+service GossipService {
+  // Exchange session state between DC Agents
+  rpc SyncSessions (SyncSessionsRequest) returns (SyncSessionsResponse);
+
+  // Notify other DCs about new MFA-approved session
+  rpc BroadcastSession (BroadcastSessionRequest) returns (BroadcastSessionResponse);
+
+  // Peer discovery and health
+  rpc Ping (PingRequest) returns (PingResponse);
+}
+
+message SyncSessionsRequest {
+  string sender_agent_id = 1;
+  google.protobuf.Timestamp since = 2;
+  repeated SessionEntry sessions = 3;
+}
+
+message SyncSessionsResponse {
+  repeated SessionEntry sessions = 1;
+  google.protobuf.Timestamp server_time = 2;
+}
+
+message SessionEntry {
+  string session_id = 1;
+  string user_id = 2;
+  string user_name = 3;
+  bytes token_hash = 4;
+  string source_ip = 5;
+  string verified_method = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  bool revoked = 9;
+}
+
+message BroadcastSessionRequest {
+  string sender_agent_id = 1;
+  SessionEntry session = 2;
+}
+
+message BroadcastSessionResponse {
+  bool acknowledged = 1;
+}
+
+message PingRequest {
+  string sender_agent_id = 1;
+  string hostname = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message PingResponse {
+  string agent_id = 1;
+  string hostname = 2;
+  int64 active_sessions = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}

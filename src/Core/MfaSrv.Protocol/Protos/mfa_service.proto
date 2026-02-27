@@ -1,0 +1,220 @@
+syntax = "proto3";
+
+option csharp_namespace = "MfaSrv.Protocol";
+
+package mfasrv;
+
+import "google/protobuf/timestamp.proto";
+
+// Central MFA Server service - used by both DC Agents and Endpoint Agents
+service MfaService {
+  // Authentication decision
+  rpc EvaluateAuthentication (AuthEvaluationRequest) returns (AuthEvaluationResponse);
+
+  // MFA challenge operations
+  rpc IssueChallenge (IssueChallengeRequest) returns (IssueChallengeResponse);
+  rpc VerifyChallenge (VerifyChallengeRequest) returns (VerifyChallengeResponse);
+  rpc CheckChallengeStatus (CheckChallengeStatusRequest) returns (CheckChallengeStatusResponse);
+
+  // Session operations
+  rpc ValidateSession (ValidateSessionRequest) returns (ValidateSessionResponse);
+  rpc CreateSession (CreateSessionRequest) returns (CreateSessionResponse);
+
+  // Policy sync (server-streaming for real-time updates)
+  rpc SyncPolicies (SyncPoliciesRequest) returns (stream PolicyUpdate);
+
+  // Agent registration and heartbeat
+  rpc RegisterAgent (RegisterAgentRequest) returns (RegisterAgentResponse);
+  rpc Heartbeat (HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Certificate enrollment - agent sends CSR, server signs and returns cert
+  rpc EnrollCertificate (EnrollCertificateRequest) returns (EnrollCertificateResponse);
+  rpc RevokeCertificate (RevokeCertificateRequest) returns (RevokeCertificateResponse);
+  rpc GetCrl (GetCrlRequest) returns (GetCrlResponse);
+}
+
+message AuthEvaluationRequest {
+  string user_name = 1;
+  string domain = 2;
+  string source_ip = 3;
+  string target_resource = 4;
+  AuthProtocolType protocol = 5;
+  string agent_id = 6;
+}
+
+message AuthEvaluationResponse {
+  AuthDecisionType decision = 1;
+  string session_token = 2;
+  string challenge_id = 3;
+  string matched_policy_id = 4;
+  string reason = 5;
+  string required_method = 6;
+  int32 timeout_ms = 7;
+  string challenge_metadata = 8;  // JSON metadata for method-specific options (e.g. FIDO2 assertion options)
+}
+
+message IssueChallengeRequest {
+  string user_id = 1;
+  string method = 2;
+  string source_ip = 3;
+  string target_resource = 4;
+}
+
+message IssueChallengeResponse {
+  bool success = 1;
+  string challenge_id = 2;
+  string error = 3;
+  string user_prompt = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message VerifyChallengeRequest {
+  string challenge_id = 1;
+  string response = 2;
+}
+
+message VerifyChallengeResponse {
+  bool success = 1;
+  string error = 2;
+  string session_token = 3;
+  bool should_lockout = 4;
+}
+
+message CheckChallengeStatusRequest {
+  string challenge_id = 1;
+}
+
+message CheckChallengeStatusResponse {
+  ChallengeStatusType status = 1;
+  string error = 2;
+}
+
+message ValidateSessionRequest {
+  string session_token = 1;
+  string user_name = 2;
+  string source_ip = 3;
+}
+
+message ValidateSessionResponse {
+  bool valid = 1;
+  string user_id = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message CreateSessionRequest {
+  string user_id = 1;
+  string source_ip = 2;
+  string target_resource = 3;
+  string verified_method = 4;
+  int32 ttl_seconds = 5;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+  string session_token = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message SyncPoliciesRequest {
+  string agent_id = 1;
+  google.protobuf.Timestamp last_sync = 2;
+}
+
+message PolicyUpdate {
+  string policy_id = 1;
+  string policy_json = 2;
+  bool deleted = 3;
+  google.protobuf.Timestamp updated_at = 4;
+}
+
+message RegisterAgentRequest {
+  string hostname = 1;
+  AgentTypeEnum agent_type = 2;
+  string ip_address = 3;
+  string certificate_thumbprint = 4;
+  string version = 5;
+}
+
+message RegisterAgentResponse {
+  string agent_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  int64 active_sessions = 2;
+  int64 auth_count_since_last = 3;
+  double cpu_percent = 4;
+  int64 memory_mb = 5;
+}
+
+message HeartbeatResponse {
+  bool acknowledged = 1;
+  bool force_policy_sync = 2;
+}
+
+enum AuthProtocolType {
+  AUTH_PROTOCOL_UNKNOWN = 0;
+  AUTH_PROTOCOL_KERBEROS = 1;
+  AUTH_PROTOCOL_NTLM = 2;
+  AUTH_PROTOCOL_LDAP = 3;
+  AUTH_PROTOCOL_RADIUS = 4;
+}
+
+enum AuthDecisionType {
+  AUTH_DECISION_ALLOW = 0;
+  AUTH_DECISION_REQUIRE_MFA = 1;
+  AUTH_DECISION_DENY = 2;
+  AUTH_DECISION_PENDING = 3;
+}
+
+enum ChallengeStatusType {
+  CHALLENGE_STATUS_ISSUED = 0;
+  CHALLENGE_STATUS_APPROVED = 1;
+  CHALLENGE_STATUS_DENIED = 2;
+  CHALLENGE_STATUS_EXPIRED = 3;
+  CHALLENGE_STATUS_FAILED = 4;
+}
+
+enum AgentTypeEnum {
+  AGENT_TYPE_DC = 0;
+  AGENT_TYPE_ENDPOINT = 1;
+}
+
+// Certificate enrollment messages
+
+message EnrollCertificateRequest {
+  string agent_id = 1;
+  AgentTypeEnum agent_type = 2;
+  string csr_pem = 3;
+}
+
+message EnrollCertificateResponse {
+  bool success = 1;
+  string signed_cert_pem = 2;
+  string ca_cert_pem = 3;
+  string error_message = 4;
+}
+
+message RevokeCertificateRequest {
+  string serial_number = 1;
+  string reason = 2;
+}
+
+message RevokeCertificateResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+message GetCrlRequest {
+}
+
+message GetCrlResponse {
+  repeated CrlEntry entries = 1;
+}
+
+message CrlEntry {
+  string serial_number = 1;
+  google.protobuf.Timestamp revoked_at = 2;
+}

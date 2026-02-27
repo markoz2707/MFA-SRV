@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MFA-SRV Group Policy Administrative Template - English (en-US)
+  Language resource file for MfaSrv.admx
+-->
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                           revision="1.0"
+                           schemaVersion="1.0"
+                           xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+
+  <displayName>MFA-SRV Configuration</displayName>
+  <description>Administrative template for managing MFA-SRV agent configuration across domain-joined machines.</description>
+
+  <resources>
+    <stringTable>
+
+      <!-- Supported On -->
+      <string id="SUPPORTED_WindowsServer2016">Windows Server 2016 or later</string>
+
+      <!-- Categories -->
+      <string id="CAT_MfaSrv">MFA-SRV Configuration</string>
+      <string id="CAT_MfaSrv_Help">Contains configuration policies for MFA-SRV multi-factor authentication agents deployed across the enterprise environment.</string>
+
+      <string id="CAT_DcAgent">DC Agent Settings</string>
+      <string id="CAT_DcAgent_Help">Configuration settings for the MFA-SRV Domain Controller Agent. The DC Agent intercepts authentication requests on domain controllers and enforces multi-factor authentication policies.</string>
+
+      <string id="CAT_EndpointAgent">Endpoint Agent Settings</string>
+      <string id="CAT_EndpointAgent_Help">Configuration settings for the MFA-SRV Endpoint Agent. The Endpoint Agent runs on workstations and member servers to enforce multi-factor authentication at the endpoint level.</string>
+
+      <!-- Failover Mode Enum Values (shared) -->
+      <string id="FailoverMode_FailOpen">Fail Open - Allow authentication when the central server is unreachable</string>
+      <string id="FailoverMode_FailClose">Fail Close - Deny authentication when the central server is unreachable</string>
+      <string id="FailoverMode_CachedOnly">Cached Only - Use cached decisions only when the central server is unreachable</string>
+
+      <!-- ============================================================== -->
+      <!-- DC Agent Policy Strings                                        -->
+      <!-- ============================================================== -->
+
+      <!-- DC Agent: Central Server URL -->
+      <string id="POL_DcAgent_CentralServerUrl">Central Server URL</string>
+      <string id="POL_DcAgent_CentralServerUrl_Help">Specifies the URL of the MFA-SRV central server that the DC Agent communicates with for authentication decisions and policy retrieval.
+
+The URL must include the protocol scheme (https://) and the port number if it differs from the default.
+
+Default value: https://mfasrv-server:5081
+
+If this policy is not configured, the agent uses the value defined in its local configuration file (appsettings.json).</string>
+
+      <!-- DC Agent: Agent ID -->
+      <string id="POL_DcAgent_AgentId">Agent ID</string>
+      <string id="POL_DcAgent_AgentId_Help">Specifies the unique identifier for this DC Agent instance. The Agent ID is used by the central server to identify and track individual agent installations across the domain.
+
+Each domain controller running the DC Agent must have a unique Agent ID. If left empty, the agent will generate an identifier based on the machine name during first startup.
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Named Pipe Name -->
+      <string id="POL_DcAgent_PipeName">Named Pipe Name</string>
+      <string id="POL_DcAgent_PipeName_Help">Specifies the name of the Windows Named Pipe used for inter-process communication between the DC Agent service and the authentication filter component on the domain controller.
+
+This value must match the pipe name expected by the MFA-SRV authentication filter DLL. Changing this value without updating the filter component will prevent MFA challenge interception.
+
+Default value: MfaSrvDcAgent
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Pipe Timeout -->
+      <string id="POL_DcAgent_PipeTimeoutMs">Pipe Timeout (milliseconds)</string>
+      <string id="POL_DcAgent_PipeTimeoutMs_Help">Specifies the maximum time, in milliseconds, that the DC Agent will wait for a response on the named pipe connection before timing out.
+
+Increasing this value may be necessary on heavily loaded domain controllers, but excessively high values can delay authentication responses.
+
+Minimum: 500 ms
+Maximum: 10000 ms
+Default: 3000 ms
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Heartbeat Interval Seconds -->
+      <string id="POL_DcAgent_HeartbeatIntervalSeconds">Heartbeat Interval (seconds)</string>
+      <string id="POL_DcAgent_HeartbeatIntervalSeconds_Help">Specifies the interval, in seconds, at which the DC Agent sends heartbeat signals to the central server. Heartbeats indicate the agent is operational and allow the central server to monitor agent health across the domain.
+
+Lower values provide faster detection of agent failures but increase network traffic. Higher values reduce overhead but delay failure detection in the central management console.
+
+Minimum: 10 seconds
+Maximum: 300 seconds
+Default: 30 seconds
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Policy Sync Interval Seconds -->
+      <string id="POL_DcAgent_PolicySyncIntervalSeconds">Policy Sync Interval (seconds)</string>
+      <string id="POL_DcAgent_PolicySyncIntervalSeconds_Help">Specifies the interval, in seconds, at which the DC Agent synchronizes MFA policy definitions from the central server to the local cache.
+
+Lower values ensure policy changes take effect more quickly across domain controllers, but increase load on the central server. Higher values reduce server load but delay policy propagation.
+
+Minimum: 10 seconds
+Maximum: 600 seconds
+Default: 60 seconds
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Session TTL Minutes -->
+      <string id="POL_DcAgent_SessionTtlMinutes">Session TTL (minutes)</string>
+      <string id="POL_DcAgent_SessionTtlMinutes_Help">Specifies the time-to-live, in minutes, for cached MFA session tokens on the domain controller. After a user successfully completes an MFA challenge, the resulting session is cached locally for this duration. Subsequent authentication attempts within the TTL period will not require an additional MFA challenge.
+
+Lower values increase security by requiring more frequent MFA challenges. Higher values improve the user experience by reducing MFA prompts during the working day.
+
+Minimum: 5 minutes
+Maximum: 1440 minutes (24 hours)
+Default: 480 minutes (8 hours)
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Failover Mode -->
+      <string id="POL_DcAgent_FailoverMode">Failover Mode</string>
+      <string id="POL_DcAgent_FailoverMode_Help">Determines the behavior of the DC Agent when the central MFA-SRV server is unreachable. This setting directly affects the security posture and availability trade-off during server outages.
+
+Available modes:
+
+- Fail Open: Authentication requests are allowed without MFA verification when the central server is unreachable. This prioritizes availability over security and is suitable for environments where service continuity is critical.
+
+- Fail Close: Authentication requests are denied when the central server is unreachable. This prioritizes security over availability and should be used in high-security environments where unauthorized access must be prevented even at the cost of service disruption.
+
+- Cached Only: Only previously cached MFA decisions are honored when the central server is unreachable. Users who have recently completed MFA can continue to authenticate, but new or expired sessions are denied. This provides a balanced approach between security and availability.
+
+Default: Fail Open
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Cache Database Path -->
+      <string id="POL_DcAgent_CacheDbPath">Cache Database Path</string>
+      <string id="POL_DcAgent_CacheDbPath_Help">Specifies the file path for the SQLite database used by the DC Agent to cache MFA session data, policy definitions, and authentication decisions locally on the domain controller.
+
+The path can be absolute (e.g., C:\ProgramData\MfaSrv\dcagent_cache.db) or relative to the agent installation directory. The agent service account must have read/write permissions to this location.
+
+Default value: dcagent_cache.db (relative to the agent installation directory)
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Certificate Path -->
+      <string id="POL_DcAgent_CertificatePath">Certificate Path</string>
+      <string id="POL_DcAgent_CertificatePath_Help">Specifies the file path to the X.509 client certificate (PFX/PKCS#12 format) used by the DC Agent to authenticate itself to the central MFA-SRV server over mutual TLS.
+
+If left empty, the agent connects to the central server using server-side TLS only, without client certificate authentication. When a certificate path is specified, the certificate is used for mutual TLS authentication, providing stronger agent identity verification.
+
+The agent service account must have read access to this file.
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- DC Agent: Gossip Peers -->
+      <string id="POL_DcAgent_GossipPeers">Gossip Peers</string>
+      <string id="POL_DcAgent_GossipPeers_Help">Specifies a semicolon-separated list of peer DC Agent URLs for the gossip protocol. The gossip protocol enables DC Agents to share cached MFA session data and agent state directly between domain controllers, reducing dependency on the central server.
+
+Example: https://dc01.contoso.com:5082;https://dc02.contoso.com:5082;https://dc03.contoso.com:5082
+
+Each entry must be a valid URL including the protocol scheme and port. If no peers are configured, the gossip protocol is disabled and each DC Agent operates independently with respect to caching.
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- ============================================================== -->
+      <!-- Endpoint Agent Policy Strings                                  -->
+      <!-- ============================================================== -->
+
+      <!-- Endpoint Agent: Central Server URL -->
+      <string id="POL_EndpointAgent_CentralServerUrl">Central Server URL</string>
+      <string id="POL_EndpointAgent_CentralServerUrl_Help">Specifies the URL of the MFA-SRV central server that the Endpoint Agent communicates with for authentication decisions and policy retrieval.
+
+The URL must include the protocol scheme (https://) and the port number if it differs from the default.
+
+Default value: https://mfasrv-server:5081
+
+If this policy is not configured, the agent uses the value defined in its local configuration file (appsettings.json).</string>
+
+      <!-- Endpoint Agent: Agent ID -->
+      <string id="POL_EndpointAgent_AgentId">Agent ID</string>
+      <string id="POL_EndpointAgent_AgentId_Help">Specifies the unique identifier for this Endpoint Agent instance. The Agent ID is used by the central server to identify and track individual agent installations across the domain.
+
+Each endpoint running the Endpoint Agent must have a unique Agent ID. If left empty, the agent will generate an identifier based on the machine name during first startup.
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Named Pipe Name -->
+      <string id="POL_EndpointAgent_PipeName">Named Pipe Name</string>
+      <string id="POL_EndpointAgent_PipeName_Help">Specifies the name of the Windows Named Pipe used for inter-process communication between the Endpoint Agent service and the credential provider component on the workstation.
+
+This value must match the pipe name expected by the MFA-SRV credential provider. Changing this value without updating the credential provider will prevent MFA challenge interception.
+
+Default value: MfaSrvEndpointAgent
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Pipe Timeout -->
+      <string id="POL_EndpointAgent_PipeTimeoutMs">Pipe Timeout (milliseconds)</string>
+      <string id="POL_EndpointAgent_PipeTimeoutMs_Help">Specifies the maximum time, in milliseconds, that the Endpoint Agent will wait for a response on the named pipe connection before timing out.
+
+Increasing this value may be necessary on slower endpoints, but excessively high values can delay the logon experience.
+
+Minimum: 500 ms
+Maximum: 10000 ms
+Default: 3000 ms
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Heartbeat Interval Seconds -->
+      <string id="POL_EndpointAgent_HeartbeatIntervalSeconds">Heartbeat Interval (seconds)</string>
+      <string id="POL_EndpointAgent_HeartbeatIntervalSeconds_Help">Specifies the interval, in seconds, at which the Endpoint Agent sends heartbeat signals to the central server. Heartbeats indicate the agent is operational and allow the central server to monitor agent health.
+
+Lower values provide faster detection of agent failures but increase network traffic. Higher values reduce overhead but delay failure detection in the central management console.
+
+Minimum: 10 seconds
+Maximum: 300 seconds
+Default: 30 seconds
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Session TTL Minutes -->
+      <string id="POL_EndpointAgent_SessionTtlMinutes">Session TTL (minutes)</string>
+      <string id="POL_EndpointAgent_SessionTtlMinutes_Help">Specifies the time-to-live, in minutes, for cached MFA session tokens on the endpoint. After a user successfully completes an MFA challenge, the resulting session is cached locally for this duration. Subsequent authentication attempts within the TTL period will not require an additional MFA challenge.
+
+Lower values increase security by requiring more frequent MFA challenges. Higher values improve the user experience by reducing MFA prompts during the working day.
+
+Minimum: 5 minutes
+Maximum: 1440 minutes (24 hours)
+Default: 480 minutes (8 hours)
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Failover Mode -->
+      <string id="POL_EndpointAgent_FailoverMode">Failover Mode</string>
+      <string id="POL_EndpointAgent_FailoverMode_Help">Determines the behavior of the Endpoint Agent when the central MFA-SRV server is unreachable. This setting directly affects the security posture and availability trade-off during server outages.
+
+Available modes:
+
+- Fail Open: Authentication requests are allowed without MFA verification when the central server is unreachable. This prioritizes availability over security and is suitable for mobile workstations that frequently operate offline.
+
+- Fail Close: Authentication requests are denied when the central server is unreachable. This prioritizes security over availability and should be used on endpoints handling sensitive data where unauthorized access must be prevented.
+
+- Cached Only: Only previously cached MFA decisions are honored when the central server is unreachable. Users who have recently completed MFA can continue to authenticate, but new or expired sessions are denied. This provides a balanced approach between security and availability.
+
+Default: Fail Open
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+      <!-- Endpoint Agent: Certificate Path -->
+      <string id="POL_EndpointAgent_CertificatePath">Certificate Path</string>
+      <string id="POL_EndpointAgent_CertificatePath_Help">Specifies the file path to the X.509 client certificate (PFX/PKCS#12 format) used by the Endpoint Agent to authenticate itself to the central MFA-SRV server over mutual TLS.
+
+If left empty, the agent connects to the central server using server-side TLS only, without client certificate authentication. When a certificate path is specified, the certificate is used for mutual TLS authentication, providing stronger agent identity verification.
+
+The agent service account must have read access to this file.
+
+If this policy is not configured, the agent uses the value defined in its local configuration file.</string>
+
+    </stringTable>
+
+    <presentationTable>
+
+      <!-- ============================================================== -->
+      <!-- DC Agent Presentations                                         -->
+      <!-- ============================================================== -->
+
+      <presentation id="POL_DcAgent_CentralServerUrl">
+        <textBox refId="TXT_DcAgent_CentralServerUrl">
+          <label>Central Server URL:</label>
+          <defaultValue>https://mfasrv-server:5081</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_AgentId">
+        <textBox refId="TXT_DcAgent_AgentId">
+          <label>Agent ID:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PipeName">
+        <textBox refId="TXT_DcAgent_PipeName">
+          <label>Named Pipe Name:</label>
+          <defaultValue>MfaSrvDcAgent</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PipeTimeoutMs">
+        <decimalTextBox refId="DEC_DcAgent_PipeTimeoutMs" defaultValue="3000" spinStep="100">Pipe Timeout (ms):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_HeartbeatIntervalSeconds">
+        <decimalTextBox refId="DEC_DcAgent_HeartbeatIntervalSeconds" defaultValue="30" spinStep="5">Heartbeat Interval (seconds):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_PolicySyncIntervalSeconds">
+        <decimalTextBox refId="DEC_DcAgent_PolicySyncIntervalSeconds" defaultValue="60" spinStep="10">Policy Sync Interval (seconds):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_SessionTtlMinutes">
+        <decimalTextBox refId="DEC_DcAgent_SessionTtlMinutes" defaultValue="480" spinStep="15">Session TTL (minutes):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_FailoverMode">
+        <dropdownList refId="ENUM_DcAgent_FailoverMode" defaultItem="0">Failover Mode:</dropdownList>
+      </presentation>
+
+      <presentation id="POL_DcAgent_CacheDbPath">
+        <textBox refId="TXT_DcAgent_CacheDbPath">
+          <label>Cache Database Path:</label>
+          <defaultValue>dcagent_cache.db</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_CertificatePath">
+        <textBox refId="TXT_DcAgent_CertificatePath">
+          <label>Certificate Path:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_DcAgent_GossipPeers">
+        <textBox refId="TXT_DcAgent_GossipPeers">
+          <label>Gossip Peers (semicolon-separated URLs):</label>
+        </textBox>
+      </presentation>
+
+      <!-- ============================================================== -->
+      <!-- Endpoint Agent Presentations                                   -->
+      <!-- ============================================================== -->
+
+      <presentation id="POL_EndpointAgent_CentralServerUrl">
+        <textBox refId="TXT_EndpointAgent_CentralServerUrl">
+          <label>Central Server URL:</label>
+          <defaultValue>https://mfasrv-server:5081</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_AgentId">
+        <textBox refId="TXT_EndpointAgent_AgentId">
+          <label>Agent ID:</label>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_PipeName">
+        <textBox refId="TXT_EndpointAgent_PipeName">
+          <label>Named Pipe Name:</label>
+          <defaultValue>MfaSrvEndpointAgent</defaultValue>
+        </textBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_PipeTimeoutMs">
+        <decimalTextBox refId="DEC_EndpointAgent_PipeTimeoutMs" defaultValue="3000" spinStep="100">Pipe Timeout (ms):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_HeartbeatIntervalSeconds">
+        <decimalTextBox refId="DEC_EndpointAgent_HeartbeatIntervalSeconds" defaultValue="30" spinStep="5">Heartbeat Interval (seconds):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_SessionTtlMinutes">
+        <decimalTextBox refId="DEC_EndpointAgent_SessionTtlMinutes" defaultValue="480" spinStep="15">Session TTL (minutes):</decimalTextBox>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_FailoverMode">
+        <dropdownList refId="ENUM_EndpointAgent_FailoverMode" defaultItem="0">Failover Mode:</dropdownList>
+      </presentation>
+
+      <presentation id="POL_EndpointAgent_CertificatePath">
+        <textBox refId="TXT_EndpointAgent_CertificatePath">
+          <label>Certificate Path:</label>
+        </textBox>
+      </presentation>
+
+    </presentationTable>
+
+  </resources>
+</policyDefinitionResources>

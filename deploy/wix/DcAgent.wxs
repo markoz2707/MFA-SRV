@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  MfaSrv DC Agent - WiX v4 Installer Definition
+
+  Installs:
+    - MfaSrv.DcAgent.exe as a Windows Service (auto-start, LocalSystem)
+    - MfaSrvLsaAuth.dll to System32 and registers it as an LSA Authentication Package
+    - appsettings.json to ProgramData\MfaSrv\DcAgent\ (preserved on upgrade)
+
+  Build:  wix build -o MfaSrv.DcAgent.msi DcAgent.wxs -ext WixToolset.Firewall.wixext
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- ======================================================================
+       Package metadata
+       ====================================================================== -->
+  <Package Name="MfaSrv DC Agent"
+           Manufacturer="MfaSrv"
+           Version="1.0.0.0"
+           UpgradeCode="E1A00000-DC01-4A6E-9F00-MFASRV000001"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="MfaSrv Domain Controller Agent - LSA authentication package and gRPC relay service." />
+
+    <!-- Major upgrade: removes previous versions before installing -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of MfaSrv DC Agent is already installed."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ====================================================================
+         Public properties (configurable via msiexec or UI)
+         ==================================================================== -->
+    <Property Id="CENTRALSERVERURL" Value="https://mfasrv-server:5081" Secure="yes" />
+    <Property Id="AGENTID" Value="" Secure="yes" />
+    <Property Id="FAILOVERMODE" Value="FailOpen" Secure="yes" />
+
+    <!-- ====================================================================
+         Launch conditions
+         ==================================================================== -->
+    <Launch Condition="Privileged" Message="Administrator privileges are required to install the MfaSrv DC Agent." />
+    <Launch Condition="VersionNT64" Message="MfaSrv DC Agent requires a 64-bit version of Windows." />
+
+    <!-- ====================================================================
+         Directory structure
+         ==================================================================== -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="MfaSrv">
+        <Directory Id="DCAGENTFOLDER" Name="DcAgent" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="System64Folder" />
+
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="MFASRV_APPDATA" Name="MfaSrv">
+        <Directory Id="CONFIGFOLDER" Name="DcAgent" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- ====================================================================
+         Component: Main service executable and dependencies
+         ==================================================================== -->
+    <ComponentGroup Id="ServiceComponents" Directory="DCAGENTFOLDER">
+      <Component Id="ServiceExecutable" Guid="F1A00000-DC01-0001-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvDcAgentExe"
+              Source="$(var.PublishDir)\MfaSrv.DcAgent.exe"
+              KeyPath="yes" />
+
+        <!-- Windows Service definition -->
+        <ServiceInstall Id="DcAgentService"
+                        Name="MfaSrvDcAgent"
+                        DisplayName="MfaSrv DC Agent"
+                        Description="MfaSrv domain controller agent - relays authentication requests to central MFA server and enforces MFA policy via the LSA authentication package."
+                        Type="ownProcess"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Vital="yes">
+          <ServiceDependency Id="Netlogon" />
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="none"
+                              RestartServiceDelayInSeconds="30"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+
+        <ServiceControl Id="DcAgentServiceControl"
+                        Name="MfaSrvDcAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+
+      <!-- All published runtime files (DLLs, runtimeconfig, deps) -->
+      <Component Id="RuntimeFiles" Guid="F1A00000-DC01-0002-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvDcAgentDepsJson"
+              Source="$(var.PublishDir)\MfaSrv.DcAgent.deps.json" />
+        <File Id="MfaSrvDcAgentRuntimeConfigJson"
+              Source="$(var.PublishDir)\MfaSrv.DcAgent.runtimeconfig.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CoreDll" Guid="F1A00000-DC01-0003-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCoreDll"
+              Source="$(var.PublishDir)\MfaSrv.Core.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="CryptoDll" Guid="F1A00000-DC01-0004-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvCryptographyDll"
+              Source="$(var.PublishDir)\MfaSrv.Cryptography.dll"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ProtocolDll" Guid="F1A00000-DC01-0005-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvProtocolDll"
+              Source="$(var.PublishDir)\MfaSrv.Protocol.dll"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: LSA Authentication Package DLL -> System32
+         ==================================================================== -->
+    <ComponentGroup Id="LsaComponents" Directory="System64Folder">
+      <Component Id="LsaDll" Guid="F1A00000-DC01-0010-0000-MFASRV000001" Bitness="always64">
+        <File Id="MfaSrvLsaAuthDll"
+              Source="$(var.NativeDir)\MfaSrvLsaAuth.dll"
+              KeyPath="yes" />
+
+        <!-- Register as LSA Authentication Package -->
+        <RegistryValue Root="HKLM"
+                       Key="SYSTEM\CurrentControlSet\Control\Lsa"
+                       Name="Authentication Packages"
+                       Type="multiString"
+                       Action="append"
+                       Value="MfaSrvLsaAuth" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Component: Configuration file (preserved across upgrades)
+         ==================================================================== -->
+    <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
+      <Component Id="AppSettingsConfig" Guid="F1A00000-DC01-0020-0000-MFASRV000001" NeverOverwrite="yes" Permanent="yes">
+        <File Id="AppSettingsJson"
+              Source="$(var.PublishDir)\appsettings.json"
+              Name="appsettings.json"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- ====================================================================
+         Custom actions: write runtime configuration from MSI properties
+         ==================================================================== -->
+    <SetProperty Id="WriteConfigCA"
+                 Before="WriteConfigCA"
+                 Sequence="execute"
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[CONFIGFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.DcAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.DcAgent.AgentId = '[AGENTID]'; $cfg.DcAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[CONFIGFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+
+    <CustomAction Id="WriteConfigCA"
+                  BinaryRef="Wix4UtilCA_X64"
+                  DllEntry="WixQuietExec64"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <!-- ====================================================================
+         Feature tree
+         ==================================================================== -->
+    <Feature Id="ProductFeature" Title="MfaSrv DC Agent" Level="1" AllowAbsent="no">
+      <ComponentGroupRef Id="ServiceComponents" />
+      <ComponentGroupRef Id="LsaComponents" />
+      <ComponentGroupRef Id="ConfigComponents" />
+    </Feature>
+
+    <!-- ====================================================================
+         Install sequence
+         ==================================================================== -->
+    <InstallExecuteSequence>
+      <Custom Action="WriteConfigCA" After="InstallFiles" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

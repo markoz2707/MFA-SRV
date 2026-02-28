@@ -1,12 +1,16 @@
 using MfaSrv.DcAgent;
+using MfaSrv.DcAgent.GrpcServices;
 using MfaSrv.DcAgent.Services;
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = "MfaSrv DC Agent";
 });
+
+// gRPC server for gossip protocol
+builder.Services.AddGrpc();
 
 // Configuration
 builder.Services.Configure<DcAgentSettings>(builder.Configuration.GetSection("DcAgent"));
@@ -31,19 +35,19 @@ builder.Services.AddHostedService<CentralServerClient>();
 builder.Services.AddHostedService<GossipService>();
 builder.Services.AddHostedService<PolicySyncClient>();
 
-var host = builder.Build();
+var app = builder.Build();
 
 // Initialize SQLite cache store and hydrate in-memory caches before starting the host
-var initLogger = host.Services.GetRequiredService<ILogger<Program>>();
+var initLogger = app.Services.GetRequiredService<ILogger<Program>>();
 try
 {
-    var cacheStore = host.Services.GetRequiredService<SqliteCacheStore>();
+    var cacheStore = app.Services.GetRequiredService<SqliteCacheStore>();
     await cacheStore.InitializeAsync();
 
-    var policyCache = host.Services.GetRequiredService<PolicyCacheService>();
+    var policyCache = app.Services.GetRequiredService<PolicyCacheService>();
     await policyCache.InitializeAsync();
 
-    var sessionCache = host.Services.GetRequiredService<SessionCacheService>();
+    var sessionCache = app.Services.GetRequiredService<SessionCacheService>();
     await sessionCache.InitializeAsync();
 
     initLogger.LogInformation("SQLite-backed cache initialization complete");
@@ -53,4 +57,7 @@ catch (Exception ex)
     initLogger.LogError(ex, "Failed to initialize SQLite cache; service will start with empty caches");
 }
 
-host.Run();
+// Map gRPC gossip endpoint for peer DC Agents
+app.MapGrpcService<GossipGrpcService>();
+
+app.Run();

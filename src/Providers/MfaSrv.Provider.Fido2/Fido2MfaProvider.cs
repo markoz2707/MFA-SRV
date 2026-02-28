@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -20,23 +19,16 @@ namespace MfaSrv.Provider.Fido2;
 public class Fido2MfaProvider : IMfaProvider
 {
     private readonly Fido2Settings _settings;
+    private readonly IChallengeStore _store;
     private readonly ILogger<Fido2MfaProvider> _logger;
 
-    /// <summary>
-    /// Pending attestation (registration) options keyed by a server-generated
-    /// challenge ID. Consumed by <see cref="CompleteEnrollmentAsync"/>.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, PendingAttestation> _pendingAttestations = new();
+    private const string AttestationPrefix = "fido2:attest:";
+    private const string AssertionPrefix = "fido2:assert:";
 
-    /// <summary>
-    /// Pending assertion (authentication) options keyed by challenge ID.
-    /// Consumed by <see cref="VerifyAsync"/>.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, PendingAssertion> _pendingAssertions = new();
-
-    public Fido2MfaProvider(IOptions<Fido2Settings> settings, ILogger<Fido2MfaProvider> logger)
+    public Fido2MfaProvider(IOptions<Fido2Settings> settings, IChallengeStore store, ILogger<Fido2MfaProvider> logger)
     {
         _settings = settings.Value;
+        _store = store;
         _logger = logger;
     }
 
@@ -55,7 +47,7 @@ public class Fido2MfaProvider : IMfaProvider
     /// The client (browser / endpoint agent) uses these options to call
     /// <c>navigator.credentials.create()</c> and returns the attestation response.
     /// </summary>
-    public Task<EnrollmentInitResult> BeginEnrollmentAsync(EnrollmentContext ctx, CancellationToken ct = default)
+    public async Task<EnrollmentInitResult> BeginEnrollmentAsync(EnrollmentContext ctx, CancellationToken ct = default)
     {
         var challengeBytes = RandomNumberGenerator.GetBytes(_settings.ChallengeSize);
         var challengeId = Guid.NewGuid().ToString();
@@ -93,7 +85,7 @@ public class Fido2MfaProvider : IMfaProvider
         var optionsJson = JsonSerializer.Serialize(creationOptions, _jsonOptions);
 
         // Store the pending attestation so we can validate the response later.
-        _pendingAttestations[challengeId] = new PendingAttestation
+        await _store.SetAsync(AttestationPrefix + challengeId, new PendingAttestation
         {
             Challenge = challengeBytes,
             UserId = ctx.UserId,
@@ -101,13 +93,13 @@ public class Fido2MfaProvider : IMfaProvider
             RpId = _settings.ServerDomain,
             Origin = _settings.Origin,
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(_settings.ChallengeExpiryMinutes)
-        };
+        }, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         _logger.LogInformation(
             "FIDO2 attestation started for user {UserId}, challenge {ChallengeId}",
             ctx.UserId, challengeId);
 
-        return Task.FromResult(new EnrollmentInitResult
+        return new EnrollmentInitResult
         {
             Success = true,
             Secret = userHandle, // Placeholder; will be replaced by credential data on completion.
@@ -117,7 +109,7 @@ public class Fido2MfaProvider : IMfaProvider
                 ["publicKeyCredentialCreationOptions"] = optionsJson,
                 ["instruction"] = "Use your security key to complete registration. Insert the key and touch it when prompted."
             }
-        });
+        };
     }
 
     /// <summary>
@@ -126,7 +118,7 @@ public class Fido2MfaProvider : IMfaProvider
     /// authenticator's response and returns success so the caller can persist
     /// the credential data in the enrollment record.
     /// </summary>
-    public Task<EnrollmentCompleteResult> CompleteEnrollmentAsync(EnrollmentContext ctx, string response, CancellationToken ct = default)
+    public async Task<EnrollmentCompleteResult> CompleteEnrollmentAsync(EnrollmentContext ctx, string response, CancellationToken ct = default)
     {
         try
         {
@@ -136,31 +128,34 @@ public class Fido2MfaProvider : IMfaProvider
             // Extract the challenge ID to look up the pending attestation.
             if (!root.TryGetProperty("challengeId", out var challengeIdElem))
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Response must contain 'challengeId'"
-                });
+                };
             }
 
             var challengeId = challengeIdElem.GetString()!;
 
-            if (!_pendingAttestations.TryRemove(challengeId, out var pending))
+            var pending = await _store.GetAsync<PendingAttestation>(AttestationPrefix + challengeId, ct);
+            await _store.RemoveAsync(AttestationPrefix + challengeId, ct);
+
+            if (pending == null)
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Unknown or expired attestation challenge"
-                });
+                };
             }
 
             if (DateTimeOffset.UtcNow > pending.ExpiresAt)
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Attestation challenge has expired"
-                });
+                };
             }
 
             // Verify user identity matches.
@@ -170,11 +165,11 @@ public class Fido2MfaProvider : IMfaProvider
                     "Attestation user mismatch: expected {Expected}, got {Actual}",
                     pending.UserId, ctx.UserId);
 
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "User identity mismatch"
-                });
+                };
             }
 
             // Extract the attestation response fields.
@@ -182,11 +177,11 @@ public class Fido2MfaProvider : IMfaProvider
                 !root.TryGetProperty("clientDataJSON", out var clientDataElem) ||
                 !root.TryGetProperty("credentialId", out var credIdElem))
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Response must contain 'attestationObject', 'clientDataJSON', and 'credentialId'"
-                });
+                };
             }
 
             var credentialIdB64 = credIdElem.GetString()!;
@@ -200,11 +195,11 @@ public class Fido2MfaProvider : IMfaProvider
             if (!clientDataValidation.IsValid)
             {
                 _logger.LogWarning("Client data validation failed: {Error}", clientDataValidation.Error);
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = $"Client data validation failed: {clientDataValidation.Error}"
-                });
+                };
             }
 
             // Extract public key from the attestation response.
@@ -248,28 +243,28 @@ public class Fido2MfaProvider : IMfaProvider
             // credential JSON as the enrollment's encrypted secret. We signal
             // success and provide the credential data in metadata so the caller
             // knows what to store.
-            return Task.FromResult(new EnrollmentCompleteResult
+            return new EnrollmentCompleteResult
             {
                 Success = true
-            });
+            };
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse attestation response");
-            return Task.FromResult(new EnrollmentCompleteResult
+            return new EnrollmentCompleteResult
             {
                 Success = false,
                 Error = "Invalid JSON attestation response"
-            });
+            };
         }
         catch (FormatException ex)
         {
             _logger.LogError(ex, "Invalid base64 in attestation response");
-            return Task.FromResult(new EnrollmentCompleteResult
+            return new EnrollmentCompleteResult
             {
                 Success = false,
                 Error = "Invalid base64 encoding in attestation response"
-            });
+            };
         }
     }
 
@@ -280,7 +275,7 @@ public class Fido2MfaProvider : IMfaProvider
     /// PublicKeyCredentialRequestOptions that the client uses to call
     /// <c>navigator.credentials.get()</c>.
     /// </summary>
-    public Task<ChallengeResult> IssueChallengeAsync(ChallengeContext ctx, CancellationToken ct = default)
+    public async Task<ChallengeResult> IssueChallengeAsync(ChallengeContext ctx, CancellationToken ct = default)
     {
         // Deserialize the stored credential data from the encrypted secret.
         StoredCredentialData? credential = null;
@@ -299,12 +294,12 @@ public class Fido2MfaProvider : IMfaProvider
 
         if (credential == null)
         {
-            return Task.FromResult(new ChallengeResult
+            return new ChallengeResult
             {
                 Success = false,
                 Error = "No FIDO2 credential found for this enrollment",
                 Status = ChallengeStatus.Failed
-            });
+            };
         }
 
         var challengeBytes = RandomNumberGenerator.GetBytes(_settings.ChallengeSize);
@@ -331,27 +326,27 @@ public class Fido2MfaProvider : IMfaProvider
         var optionsJson = JsonSerializer.Serialize(requestOptions, _jsonOptions);
 
         // Store the pending assertion.
-        _pendingAssertions[challengeId] = new PendingAssertion
+        await _store.SetAsync(AssertionPrefix + challengeId, new PendingAssertion
         {
             Challenge = challengeBytes,
             Credential = credential,
             UserId = ctx.UserId,
             Origin = _settings.Origin,
             ExpiresAt = expiresAt
-        };
+        }, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         _logger.LogInformation(
             "FIDO2 assertion challenge {ChallengeId} issued for user {UserId}",
             challengeId, ctx.UserId);
 
-        return Task.FromResult(new ChallengeResult
+        return new ChallengeResult
         {
             Success = true,
             ChallengeId = challengeId,
             Status = ChallengeStatus.Issued,
             ExpiresAt = expiresAt,
             UserPrompt = $"Insert your security key and touch it to authenticate.\n{optionsJson}"
-        });
+        };
     }
 
     /// <summary>
@@ -359,24 +354,27 @@ public class Fido2MfaProvider : IMfaProvider
     /// The <paramref name="response"/> is a JSON object containing the
     /// authenticator assertion response fields.
     /// </summary>
-    public Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
+    public async Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
     {
-        if (!_pendingAssertions.TryRemove(ctx.ChallengeId, out var pending))
+        var pending = await _store.GetAsync<PendingAssertion>(AssertionPrefix + ctx.ChallengeId, ct);
+        await _store.RemoveAsync(AssertionPrefix + ctx.ChallengeId, ct);
+
+        if (pending == null)
         {
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Unknown or expired assertion challenge"
-            });
+            };
         }
 
         if (DateTimeOffset.UtcNow > pending.ExpiresAt)
         {
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Assertion challenge has expired"
-            });
+            };
         }
 
         if (pending.UserId != ctx.UserId)
@@ -385,11 +383,11 @@ public class Fido2MfaProvider : IMfaProvider
                 "Assertion user mismatch: expected {Expected}, got {Actual}",
                 pending.UserId, ctx.UserId);
 
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "User identity mismatch"
-            });
+            };
         }
 
         try
@@ -403,11 +401,11 @@ public class Fido2MfaProvider : IMfaProvider
                 !root.TryGetProperty("clientDataJSON", out var clientDataElem) ||
                 !root.TryGetProperty("signature", out var signatureElem))
             {
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = "Response must contain 'credentialId', 'authenticatorData', 'clientDataJSON', and 'signature'"
-                });
+                };
             }
 
             var credentialId = credIdElem.GetString()!;
@@ -422,11 +420,11 @@ public class Fido2MfaProvider : IMfaProvider
                     "Credential ID mismatch for challenge {ChallengeId}",
                     ctx.ChallengeId);
 
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = "Credential ID does not match"
-                });
+                };
             }
 
             // Validate clientDataJSON.
@@ -437,11 +435,11 @@ public class Fido2MfaProvider : IMfaProvider
             if (!clientDataValidation.IsValid)
             {
                 _logger.LogWarning("Client data validation failed: {Error}", clientDataValidation.Error);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = $"Client data validation failed: {clientDataValidation.Error}"
-                });
+                };
             }
 
             // Validate authenticator data.
@@ -452,11 +450,11 @@ public class Fido2MfaProvider : IMfaProvider
             if (!authDataValidation.IsValid)
             {
                 _logger.LogWarning("Authenticator data validation failed: {Error}", authDataValidation.Error);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = $"Authenticator data validation failed: {authDataValidation.Error}"
-                });
+                };
             }
 
             // Verify the signature over the authenticator data and client data hash.
@@ -477,11 +475,11 @@ public class Fido2MfaProvider : IMfaProvider
             if (!signatureValid)
             {
                 _logger.LogWarning("Signature verification failed for challenge {ChallengeId}", ctx.ChallengeId);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = "Signature verification failed"
-                });
+                };
             }
 
             // Update sign count for replay detection.
@@ -491,37 +489,37 @@ public class Fido2MfaProvider : IMfaProvider
                 "FIDO2 assertion verified for user {UserId}, challenge {ChallengeId}",
                 ctx.UserId, ctx.ChallengeId);
 
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = true
-            });
+            };
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse assertion response");
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Invalid JSON assertion response"
-            });
+            };
         }
         catch (FormatException ex)
         {
             _logger.LogError(ex, "Invalid base64 in assertion response");
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Invalid base64 encoding in assertion response"
-            });
+            };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during assertion verification");
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Internal error during signature verification"
-            });
+            };
         }
     }
 

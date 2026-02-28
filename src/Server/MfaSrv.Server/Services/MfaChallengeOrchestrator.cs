@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MfaSrv.Core.Entities;
 using MfaSrv.Core.Enums;
@@ -13,16 +14,21 @@ public class MfaChallengeOrchestrator : IMfaChallengeOrchestrator
     private readonly MfaSrvDbContext _db;
     private readonly IEnumerable<IMfaProvider> _providers;
     private readonly ILogger<MfaChallengeOrchestrator> _logger;
+    private readonly byte[]? _encryptionKey;
     private static readonly TimeSpan ChallengeTimeout = TimeSpan.FromMinutes(5);
 
     public MfaChallengeOrchestrator(
         MfaSrvDbContext db,
         IEnumerable<IMfaProvider> providers,
+        IConfiguration configuration,
         ILogger<MfaChallengeOrchestrator> logger)
     {
         _db = db;
         _providers = providers;
         _logger = logger;
+
+        var keyBase64 = configuration["MfaSrv:EncryptionKey"];
+        _encryptionKey = string.IsNullOrEmpty(keyBase64) ? null : Convert.FromBase64String(keyBase64);
     }
 
     public async Task<ChallengeResult> IssueChallengeAsync(string userId, MfaMethod method, ChallengeContext context, CancellationToken ct = default)
@@ -55,7 +61,8 @@ public class MfaChallengeOrchestrator : IMfaChallengeOrchestrator
         {
             EnrollmentId = enrollment.Id,
             EncryptedSecret = enrollment.EncryptedSecret,
-            SecretNonce = enrollment.SecretNonce
+            SecretNonce = enrollment.SecretNonce,
+            EncryptionKey = _encryptionKey
         };
 
         var result = await provider.IssueChallengeAsync(challengeCtx, ct);

@@ -5,6 +5,7 @@ using FluentAssertions;
 using MfaSrv.Core.Enums;
 using MfaSrv.Core.ValueObjects;
 using MfaSrv.Provider.Push;
+using MfaSrv.Tests.Unit.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -29,6 +30,7 @@ public class PushMfaProviderTests
         return new PushMfaProvider(
             pushClient,
             Options.Create(pushSettings),
+            new InMemoryChallengeStore(),
             NullLogger<PushMfaProvider>.Instance);
     }
 

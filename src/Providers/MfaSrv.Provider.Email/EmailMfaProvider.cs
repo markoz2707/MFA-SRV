@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using MfaSrv.Core.Enums;
@@ -13,17 +12,20 @@ public class EmailMfaProvider : IMfaProvider
 {
     private readonly EmailSettings _settings;
     private readonly EmailSender _emailSender;
+    private readonly IChallengeStore _store;
     private readonly ILogger<EmailMfaProvider> _logger;
 
-    private static readonly ConcurrentDictionary<string, PendingChallenge> PendingChallenges = new();
+    private const string ChallengePrefix = "email:otp:";
 
     public EmailMfaProvider(
         IOptions<EmailSettings> settings,
         EmailSender emailSender,
+        IChallengeStore store,
         ILogger<EmailMfaProvider> logger)
     {
         _settings = settings.Value;
         _emailSender = emailSender;
+        _store = store;
         _logger = logger;
     }
 
@@ -88,7 +90,7 @@ public class EmailMfaProvider : IMfaProvider
         var challengeId = $"enroll-{ctx.UserId}-{Guid.NewGuid():N}";
         var expiry = DateTimeOffset.UtcNow.AddMinutes(_settings.CodeExpiryMinutes);
 
-        PendingChallenges[challengeId] = new PendingChallenge(testCode, expiry, 0, ctx.UserEmail);
+        await _store.SetAsync(ChallengePrefix + challengeId, new PendingChallenge(testCode, expiry, 0, ctx.UserEmail), TimeSpan.FromMinutes(_settings.CodeExpiryMinutes), ct);
 
         _logger.LogInformation("Email enrollment test OTP sent to {Email} for user {UserId}",
             MaskEmailAddress(ctx.UserEmail), ctx.UserId);
@@ -96,7 +98,7 @@ public class EmailMfaProvider : IMfaProvider
         // Verify the response code matches the test code
         if (!ConstantTimeEquals(response, testCode))
         {
-            PendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
             return new EnrollmentCompleteResult
             {
                 Success = false,
@@ -104,7 +106,7 @@ public class EmailMfaProvider : IMfaProvider
             };
         }
 
-        PendingChallenges.TryRemove(challengeId, out _);
+        await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
 
         return new EnrollmentCompleteResult
         {
@@ -166,7 +168,7 @@ public class EmailMfaProvider : IMfaProvider
             };
         }
 
-        PendingChallenges[challengeId] = new PendingChallenge(code, expiry, 0, emailAddress);
+        await _store.SetAsync(ChallengePrefix + challengeId, new PendingChallenge(code, expiry, 0, emailAddress), TimeSpan.FromMinutes(_settings.CodeExpiryMinutes + 1), ct);
 
         _logger.LogInformation("Email challenge {ChallengeId} issued for user {UserId} to {Email}",
             challengeId, ctx.UserId, MaskEmailAddress(emailAddress));
@@ -181,46 +183,48 @@ public class EmailMfaProvider : IMfaProvider
         };
     }
 
-    public Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
+    public async Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
     {
-        if (!PendingChallenges.TryGetValue(ctx.ChallengeId, out var challenge))
+        var challenge = await _store.GetAsync<PendingChallenge>(ChallengePrefix + ctx.ChallengeId, ct);
+        if (challenge == null)
         {
             _logger.LogWarning("Email verification attempted for unknown challenge {ChallengeId}", ctx.ChallengeId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Challenge not found or already consumed"
-            });
+            };
         }
 
         // Check expiry
         if (DateTimeOffset.UtcNow > challenge.Expiry)
         {
-            PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning("Email challenge {ChallengeId} expired for user {UserId}", ctx.ChallengeId, ctx.UserId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Verification code has expired"
-            });
+            };
         }
 
         // Check max attempts
         if (challenge.Attempts >= _settings.MaxAttempts)
         {
-            PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning("Email challenge {ChallengeId} exceeded max attempts for user {UserId}",
                 ctx.ChallengeId, ctx.UserId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Maximum verification attempts exceeded",
                 ShouldLockout = true
-            });
+            };
         }
 
-        // Increment attempts atomically
-        PendingChallenges[ctx.ChallengeId] = challenge with { Attempts = challenge.Attempts + 1 };
+        // Increment attempts
+        var updated = challenge with { Attempts = challenge.Attempts + 1 };
+        await _store.SetAsync(ChallengePrefix + ctx.ChallengeId, updated, TimeSpan.FromMinutes(_settings.CodeExpiryMinutes + 1), ct);
 
         // Constant-time comparison
         if (!ConstantTimeEquals(response, challenge.Code))
@@ -228,22 +232,22 @@ public class EmailMfaProvider : IMfaProvider
             var remainingAttempts = _settings.MaxAttempts - (challenge.Attempts + 1);
             _logger.LogWarning("Email verification failed for challenge {ChallengeId}, {Remaining} attempts remaining",
                 ctx.ChallengeId, remainingAttempts);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = $"Invalid verification code. {remainingAttempts} attempt(s) remaining."
-            });
+            };
         }
 
         // Success - remove the challenge
-        PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+        await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
         _logger.LogInformation("Email verification succeeded for challenge {ChallengeId}, user {UserId}",
             ctx.ChallengeId, ctx.UserId);
 
-        return Task.FromResult(new VerificationResult
+        return new VerificationResult
         {
             Success = true
-        });
+        };
     }
 
     public Task<AsyncVerificationStatus> CheckAsyncStatusAsync(string challengeId, CancellationToken ct = default)
@@ -305,17 +309,12 @@ public class EmailMfaProvider : IMfaProvider
     /// </summary>
     private static byte[] GetEncryptionKey(ChallengeContext ctx)
     {
-        // The encryption key should be provided via a key management service.
-        // For now, we use the EncryptedSecret/SecretNonce fields directly,
-        // meaning the caller must pass the already-decrypted secret in EncryptedSecret
-        // when the system handles key resolution externally.
-        throw new InvalidOperationException(
-            "Email provider requires an encryption key management service. " +
-            "Override IssueChallengeAsync in a derived class or configure key resolution.");
+        return ctx.EncryptionKey ?? throw new InvalidOperationException(
+            "Email provider requires an encryption key. Configure MfaSrv:EncryptionKey in appsettings.");
     }
 
     /// <summary>
     /// Represents a pending email challenge awaiting verification.
     /// </summary>
-    private sealed record PendingChallenge(string Code, DateTimeOffset Expiry, int Attempts, string EmailAddress);
+    internal sealed record PendingChallenge(string Code, DateTimeOffset Expiry, int Attempts, string EmailAddress);
 }

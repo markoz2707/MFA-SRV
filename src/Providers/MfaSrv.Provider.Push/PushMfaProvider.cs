@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -20,28 +19,20 @@ public class PushMfaProvider : IMfaProvider
     private readonly PushNotificationClient _pushClient;
     private readonly PushSettings _settings;
     private readonly ILogger<PushMfaProvider> _logger;
+    private readonly IChallengeStore _store;
 
-    /// <summary>
-    /// In-memory store for pending push challenges. In a production deployment this
-    /// would be backed by a distributed cache (e.g. Redis) so that any server node
-    /// can resolve the callback from the mobile app.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, PendingPushChallenge> _pendingChallenges = new();
-
-    /// <summary>
-    /// In-memory store for pending enrollments. Maps a registration token to the
-    /// enrollment context so that <see cref="CompleteEnrollmentAsync"/> can match
-    /// the callback from the mobile app.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, PendingEnrollment> _pendingEnrollments = new();
+    private const string ChallengePrefix = "push:challenge:";
+    private const string EnrollmentPrefix = "push:enroll:";
 
     public PushMfaProvider(
         PushNotificationClient pushClient,
         IOptions<PushSettings> settings,
+        IChallengeStore store,
         ILogger<PushMfaProvider> logger)
     {
         _pushClient = pushClient;
         _settings = settings.Value;
+        _store = store;
         _logger = logger;
     }
 
@@ -60,7 +51,7 @@ public class PushMfaProvider : IMfaProvider
     /// secret. The mobile app uses the registration token to associate itself with
     /// this enrollment, and later provides its FCM/APNs device token.
     /// </summary>
-    public Task<EnrollmentInitResult> BeginEnrollmentAsync(EnrollmentContext ctx, CancellationToken ct = default)
+    public async Task<EnrollmentInitResult> BeginEnrollmentAsync(EnrollmentContext ctx, CancellationToken ct = default)
     {
         // Generate a cryptographically random registration token the mobile app
         // will present when it calls CompleteEnrollment with its device token.
@@ -78,13 +69,13 @@ public class PushMfaProvider : IMfaProvider
             CreatedAt = DateTimeOffset.UtcNow,
             ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10)
         };
-        _pendingEnrollments[registrationToken] = pending;
+        await _store.SetAsync(EnrollmentPrefix + registrationToken, pending, TimeSpan.FromMinutes(10), ct);
 
         _logger.LogInformation(
             "Push enrollment started for user {UserId}. Registration token issued",
             ctx.UserId);
 
-        return Task.FromResult(new EnrollmentInitResult
+        return new EnrollmentInitResult
         {
             Success = true,
             Secret = secret,
@@ -95,7 +86,7 @@ public class PushMfaProvider : IMfaProvider
                 ["registrationToken"] = registrationToken,
                 ["instruction"] = "Open the MfaSrv Authenticator app and scan or paste this registration token to link your device."
             }
-        });
+        };
     }
 
     /// <summary>
@@ -103,7 +94,7 @@ public class PushMfaProvider : IMfaProvider
     /// app. The <paramref name="response"/> is expected to be a JSON object with
     /// at least <c>registrationToken</c> and <c>deviceToken</c> fields.
     /// </summary>
-    public Task<EnrollmentCompleteResult> CompleteEnrollmentAsync(EnrollmentContext ctx, string response, CancellationToken ct = default)
+    public async Task<EnrollmentCompleteResult> CompleteEnrollmentAsync(EnrollmentContext ctx, string response, CancellationToken ct = default)
     {
         try
         {
@@ -113,11 +104,11 @@ public class PushMfaProvider : IMfaProvider
             if (!root.TryGetProperty("registrationToken", out var regTokenElement) ||
                 !root.TryGetProperty("deviceToken", out var devTokenElement))
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Response must contain 'registrationToken' and 'deviceToken' fields"
-                });
+                };
             }
 
             var registrationToken = regTokenElement.GetString();
@@ -125,30 +116,33 @@ public class PushMfaProvider : IMfaProvider
 
             if (string.IsNullOrWhiteSpace(registrationToken) || string.IsNullOrWhiteSpace(deviceToken))
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Registration token and device token must not be empty"
-                });
+                };
             }
 
             // Validate the registration token.
-            if (!_pendingEnrollments.TryRemove(registrationToken, out var pending))
+            var pending = await _store.GetAsync<PendingEnrollment>(EnrollmentPrefix + registrationToken, ct);
+            await _store.RemoveAsync(EnrollmentPrefix + registrationToken, ct);
+
+            if (pending == null)
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Invalid or expired registration token"
-                });
+                };
             }
 
             if (DateTimeOffset.UtcNow > pending.ExpiresAt)
             {
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "Registration token has expired"
-                });
+                };
             }
 
             // Verify user identity matches.
@@ -158,39 +152,30 @@ public class PushMfaProvider : IMfaProvider
                     "Enrollment completion user mismatch: expected {ExpectedUser}, got {ActualUser}",
                     pending.UserId, ctx.UserId);
 
-                return Task.FromResult(new EnrollmentCompleteResult
+                return new EnrollmentCompleteResult
                 {
                     Success = false,
                     Error = "User identity mismatch"
-                });
+                };
             }
-
-            // The device token is stored by the calling layer (e.g. EnrollmentsController)
-            // in the MfaEnrollment entity's encrypted secret field. We encode the device
-            // token into the enrollment context's secret so the caller can persist it.
-            //
-            // NOTE: The caller is responsible for encrypting and storing the device token
-            // that is returned via this result. The PushMfaProvider stores it as the
-            // enrollment secret (replacing the initial placeholder secret) so that
-            // IssueChallengeAsync can later retrieve it from the EncryptedSecret field.
 
             _logger.LogInformation(
                 "Push enrollment completed for user {UserId}. Device token registered",
                 ctx.UserId);
 
-            return Task.FromResult(new EnrollmentCompleteResult
+            return new EnrollmentCompleteResult
             {
                 Success = true
-            });
+            };
         }
         catch (JsonException ex)
         {
             _logger.LogError(ex, "Failed to parse enrollment completion response");
-            return Task.FromResult(new EnrollmentCompleteResult
+            return new EnrollmentCompleteResult
             {
                 Success = false,
                 Error = "Invalid JSON response format"
-            });
+            };
         }
     }
 
@@ -258,7 +243,7 @@ public class PushMfaProvider : IMfaProvider
             ExpiresAt = expiresAt,
             DeviceToken = deviceToken
         };
-        _pendingChallenges[challengeId] = pending;
+        await _store.SetAsync(ChallengePrefix + challengeId, pending, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         // Send the push notification.
         var title = "MFA Authentication Request";
@@ -271,7 +256,7 @@ public class PushMfaProvider : IMfaProvider
         if (!sent)
         {
             // Remove the pending challenge since delivery failed.
-            _pendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
 
             _logger.LogError("Failed to deliver push notification for challenge {ChallengeId}", challengeId);
             return new ChallengeResult
@@ -300,40 +285,40 @@ public class PushMfaProvider : IMfaProvider
     /// Processes an approval or denial response from the mobile app callback.
     /// The <paramref name="response"/> string is expected to be "APPROVE" or "DENY".
     /// </summary>
-    public Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
+    public async Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
     {
-        if (!_pendingChallenges.TryGetValue(ctx.ChallengeId, out var pending))
+        var pending = await _store.GetAsync<PendingPushChallenge>(ChallengePrefix + ctx.ChallengeId, ct);
+        if (pending == null)
         {
             _logger.LogWarning("Verification attempted for unknown challenge {ChallengeId}", ctx.ChallengeId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Challenge not found or already resolved"
-            });
+            };
         }
 
         // Check expiration.
         if (DateTimeOffset.UtcNow > pending.ExpiresAt)
         {
-            pending.Status = ChallengeStatus.Expired;
-            _pendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
 
             _logger.LogInformation("Challenge {ChallengeId} has expired", ctx.ChallengeId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Challenge has expired"
-            });
+            };
         }
 
         // Check that the challenge has not already been resolved.
         if (pending.Status != ChallengeStatus.Issued)
         {
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = $"Challenge already resolved with status: {pending.Status}"
-            });
+            };
         }
 
         var normalizedResponse = response?.Trim().ToUpperInvariant();
@@ -342,30 +327,32 @@ public class PushMfaProvider : IMfaProvider
         {
             case "APPROVE":
                 pending.Status = ChallengeStatus.Approved;
+                await _store.SetAsync(ChallengePrefix + ctx.ChallengeId, pending, TimeSpan.FromMinutes(1), ct);
                 _logger.LogInformation("Challenge {ChallengeId} approved by user {UserId}", ctx.ChallengeId, ctx.UserId);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = true
-                });
+                };
 
             case "DENY":
                 pending.Status = ChallengeStatus.Denied;
+                await _store.SetAsync(ChallengePrefix + ctx.ChallengeId, pending, TimeSpan.FromMinutes(1), ct);
                 _logger.LogInformation("Challenge {ChallengeId} denied by user {UserId}", ctx.ChallengeId, ctx.UserId);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = "Authentication request was denied by user"
-                });
+                };
 
             default:
                 _logger.LogWarning(
                     "Invalid push response '{Response}' for challenge {ChallengeId}",
                     normalizedResponse, ctx.ChallengeId);
-                return Task.FromResult(new VerificationResult
+                return new VerificationResult
                 {
                     Success = false,
                     Error = "Invalid response. Expected 'APPROVE' or 'DENY'"
-                });
+                };
         }
     }
 
@@ -373,32 +360,32 @@ public class PushMfaProvider : IMfaProvider
     /// Returns the current asynchronous status of a push challenge.
     /// Called by the server when polling on behalf of the authentication flow.
     /// </summary>
-    public Task<AsyncVerificationStatus> CheckAsyncStatusAsync(string challengeId, CancellationToken ct = default)
+    public async Task<AsyncVerificationStatus> CheckAsyncStatusAsync(string challengeId, CancellationToken ct = default)
     {
-        if (!_pendingChallenges.TryGetValue(challengeId, out var pending))
+        var pending = await _store.GetAsync<PendingPushChallenge>(ChallengePrefix + challengeId, ct);
+        if (pending == null)
         {
-            return Task.FromResult(new AsyncVerificationStatus
+            return new AsyncVerificationStatus
             {
                 Status = ChallengeStatus.Failed,
                 Error = "Challenge not found"
-            });
+            };
         }
 
         // Auto-expire if the deadline has passed.
         if (pending.Status == ChallengeStatus.Issued && DateTimeOffset.UtcNow > pending.ExpiresAt)
         {
             pending.Status = ChallengeStatus.Expired;
-            _pendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
         }
 
-        // Clean up resolved challenges from memory (keep them until polled at least once).
+        // Clean up resolved challenges (keep them until polled at least once).
         if (pending.Status is ChallengeStatus.Approved or ChallengeStatus.Denied or ChallengeStatus.Expired)
         {
-            // Remove after returning the final status so the next poll returns "not found".
-            _pendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
         }
 
-        return Task.FromResult(new AsyncVerificationStatus
+        return new AsyncVerificationStatus
         {
             Status = pending.Status,
             Error = pending.Status switch
@@ -407,7 +394,7 @@ public class PushMfaProvider : IMfaProvider
                 ChallengeStatus.Expired => "Challenge has expired",
                 _ => null
             }
-        });
+        };
     }
 
     // ── Internal models ─────────────────────────────────────────────────

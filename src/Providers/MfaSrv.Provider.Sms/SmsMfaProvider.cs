@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using MfaSrv.Core.Enums;
@@ -13,17 +12,20 @@ public class SmsMfaProvider : IMfaProvider
 {
     private readonly SmsSettings _settings;
     private readonly SmsGatewayClient _smsClient;
+    private readonly IChallengeStore _store;
     private readonly ILogger<SmsMfaProvider> _logger;
 
-    private static readonly ConcurrentDictionary<string, PendingChallenge> PendingChallenges = new();
+    private const string ChallengePrefix = "sms:otp:";
 
     public SmsMfaProvider(
         IOptions<SmsSettings> settings,
         SmsGatewayClient smsClient,
+        IChallengeStore store,
         ILogger<SmsMfaProvider> logger)
     {
         _settings = settings.Value;
         _smsClient = smsClient;
+        _store = store;
         _logger = logger;
     }
 
@@ -87,7 +89,7 @@ public class SmsMfaProvider : IMfaProvider
         var challengeId = $"enroll-{ctx.UserId}-{Guid.NewGuid():N}";
         var expiry = DateTimeOffset.UtcNow.AddMinutes(_settings.CodeExpiryMinutes);
 
-        PendingChallenges[challengeId] = new PendingChallenge(testCode, expiry, 0, ctx.UserPhone);
+        await _store.SetAsync(ChallengePrefix + challengeId, new PendingChallenge(testCode, expiry, 0, ctx.UserPhone), TimeSpan.FromMinutes(_settings.CodeExpiryMinutes), ct);
 
         _logger.LogInformation("SMS enrollment test OTP sent to {Phone} for user {UserId}",
             MaskPhoneNumber(ctx.UserPhone), ctx.UserId);
@@ -95,7 +97,7 @@ public class SmsMfaProvider : IMfaProvider
         // For enrollment, we verify the response code matches the test code
         if (!ConstantTimeEquals(response, testCode))
         {
-            PendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
             return new EnrollmentCompleteResult
             {
                 Success = false,
@@ -103,7 +105,7 @@ public class SmsMfaProvider : IMfaProvider
             };
         }
 
-        PendingChallenges.TryRemove(challengeId, out _);
+        await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
 
         return new EnrollmentCompleteResult
         {
@@ -163,7 +165,7 @@ public class SmsMfaProvider : IMfaProvider
             };
         }
 
-        PendingChallenges[challengeId] = new PendingChallenge(code, expiry, 0, phoneNumber);
+        await _store.SetAsync(ChallengePrefix + challengeId, new PendingChallenge(code, expiry, 0, phoneNumber), TimeSpan.FromMinutes(_settings.CodeExpiryMinutes + 1), ct);
 
         _logger.LogInformation("SMS challenge {ChallengeId} issued for user {UserId} to {Phone}",
             challengeId, ctx.UserId, MaskPhoneNumber(phoneNumber));
@@ -178,46 +180,48 @@ public class SmsMfaProvider : IMfaProvider
         };
     }
 
-    public Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
+    public async Task<VerificationResult> VerifyAsync(VerificationContext ctx, string response, CancellationToken ct = default)
     {
-        if (!PendingChallenges.TryGetValue(ctx.ChallengeId, out var challenge))
+        var challenge = await _store.GetAsync<PendingChallenge>(ChallengePrefix + ctx.ChallengeId, ct);
+        if (challenge == null)
         {
             _logger.LogWarning("SMS verification attempted for unknown challenge {ChallengeId}", ctx.ChallengeId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Challenge not found or already consumed"
-            });
+            };
         }
 
         // Check expiry
         if (DateTimeOffset.UtcNow > challenge.Expiry)
         {
-            PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning("SMS challenge {ChallengeId} expired for user {UserId}", ctx.ChallengeId, ctx.UserId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Verification code has expired"
-            });
+            };
         }
 
         // Check max attempts
         if (challenge.Attempts >= _settings.MaxAttempts)
         {
-            PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning("SMS challenge {ChallengeId} exceeded max attempts for user {UserId}",
                 ctx.ChallengeId, ctx.UserId);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = "Maximum verification attempts exceeded",
                 ShouldLockout = true
-            });
+            };
         }
 
-        // Increment attempts atomically
-        PendingChallenges[ctx.ChallengeId] = challenge with { Attempts = challenge.Attempts + 1 };
+        // Increment attempts
+        var updated = challenge with { Attempts = challenge.Attempts + 1 };
+        await _store.SetAsync(ChallengePrefix + ctx.ChallengeId, updated, TimeSpan.FromMinutes(_settings.CodeExpiryMinutes + 1), ct);
 
         // Constant-time comparison
         if (!ConstantTimeEquals(response, challenge.Code))
@@ -225,22 +229,22 @@ public class SmsMfaProvider : IMfaProvider
             var remainingAttempts = _settings.MaxAttempts - (challenge.Attempts + 1);
             _logger.LogWarning("SMS verification failed for challenge {ChallengeId}, {Remaining} attempts remaining",
                 ctx.ChallengeId, remainingAttempts);
-            return Task.FromResult(new VerificationResult
+            return new VerificationResult
             {
                 Success = false,
                 Error = $"Invalid verification code. {remainingAttempts} attempt(s) remaining."
-            });
+            };
         }
 
         // Success - remove the challenge
-        PendingChallenges.TryRemove(ctx.ChallengeId, out _);
+        await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
         _logger.LogInformation("SMS verification succeeded for challenge {ChallengeId}, user {UserId}",
             ctx.ChallengeId, ctx.UserId);
 
-        return Task.FromResult(new VerificationResult
+        return new VerificationResult
         {
             Success = true
-        });
+        };
     }
 
     public Task<AsyncVerificationStatus> CheckAsyncStatusAsync(string challengeId, CancellationToken ct = default)
@@ -297,17 +301,12 @@ public class SmsMfaProvider : IMfaProvider
     /// </summary>
     private static byte[] GetEncryptionKey(ChallengeContext ctx)
     {
-        // The encryption key should be provided via a key management service.
-        // For now, we use the EncryptedSecret/SecretNonce fields directly,
-        // meaning the caller must pass the already-decrypted secret in EncryptedSecret
-        // when the system handles key resolution externally.
-        throw new InvalidOperationException(
-            "SMS provider requires an encryption key management service. " +
-            "Override IssueChallengeAsync in a derived class or configure key resolution.");
+        return ctx.EncryptionKey ?? throw new InvalidOperationException(
+            "SMS provider requires an encryption key. Configure MfaSrv:EncryptionKey in appsettings.");
     }
 
     /// <summary>
     /// Represents a pending SMS challenge awaiting verification.
     /// </summary>
-    private sealed record PendingChallenge(string Code, DateTimeOffset Expiry, int Attempts, string PhoneNumber);
+    internal sealed record PendingChallenge(string Code, DateTimeOffset Expiry, int Attempts, string PhoneNumber);
 }

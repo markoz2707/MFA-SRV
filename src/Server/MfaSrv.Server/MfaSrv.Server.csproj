@@ -16,6 +16,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.8" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +24,11 @@
     <ProjectReference Include="..\..\Core\MfaSrv.Cryptography\MfaSrv.Cryptography.csproj" />
     <ProjectReference Include="..\..\Core\MfaSrv.Protocol\MfaSrv.Protocol.csproj" />
     <ProjectReference Include="..\..\Providers\MfaSrv.Provider.Totp\MfaSrv.Provider.Totp.csproj" />
+    <ProjectReference Include="..\..\Providers\MfaSrv.Provider.Push\MfaSrv.Provider.Push.csproj" />
+    <ProjectReference Include="..\..\Providers\MfaSrv.Provider.Sms\MfaSrv.Provider.Sms.csproj" />
+    <ProjectReference Include="..\..\Providers\MfaSrv.Provider.Email\MfaSrv.Provider.Email.csproj" />
+    <ProjectReference Include="..\..\Providers\MfaSrv.Provider.Fido2\MfaSrv.Provider.Fido2.csproj" />
+    <ProjectReference Include="..\..\Providers\MfaSrv.Provider.FortiToken\MfaSrv.Provider.FortiToken.csproj" />
   </ItemGroup>
 
 </Project>

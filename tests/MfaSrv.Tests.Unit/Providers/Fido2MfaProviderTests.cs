@@ -4,6 +4,7 @@ using FluentAssertions;
 using MfaSrv.Core.Enums;
 using MfaSrv.Core.ValueObjects;
 using MfaSrv.Provider.Fido2;
+using MfaSrv.Tests.Unit.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -24,6 +25,7 @@ public class Fido2MfaProviderTests
 
         return new Fido2MfaProvider(
             Options.Create(fido2Settings),
+            new InMemoryChallengeStore(),
             NullLogger<Fido2MfaProvider>.Instance);
     }
 

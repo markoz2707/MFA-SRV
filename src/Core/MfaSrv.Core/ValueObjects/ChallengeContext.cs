@@ -8,4 +8,5 @@ public record ChallengeContext
     public string? TargetResource { get; init; }
     public byte[]? EncryptedSecret { get; init; }
     public byte[]? SecretNonce { get; init; }
+    public byte[]? EncryptionKey { get; init; }
 }

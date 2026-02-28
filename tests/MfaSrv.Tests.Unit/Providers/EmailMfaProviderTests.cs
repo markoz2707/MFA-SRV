@@ -3,6 +3,7 @@ using FluentAssertions;
 using MfaSrv.Core.Enums;
 using MfaSrv.Core.ValueObjects;
 using MfaSrv.Provider.Email;
+using MfaSrv.Tests.Unit.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -28,6 +29,7 @@ public class EmailMfaProviderTests
         return new EmailMfaProvider(
             Options.Create(emailSettings),
             emailSender,
+            new InMemoryChallengeStore(),
             NullLogger<EmailMfaProvider>.Instance);
     }
 

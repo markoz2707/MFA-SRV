@@ -4,6 +4,7 @@ using FluentAssertions;
 using MfaSrv.Core.Enums;
 using MfaSrv.Core.ValueObjects;
 using MfaSrv.Provider.FortiToken;
+using MfaSrv.Tests.Unit.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -34,6 +35,7 @@ public class FortiTokenMfaProviderTests
         return new FortiTokenMfaProvider(
             fortiClient,
             Options.Create(fortiSettings),
+            new InMemoryChallengeStore(),
             NullLogger<FortiTokenMfaProvider>.Instance);
     }
 

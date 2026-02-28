@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using MfaSrv.Core.Enums;
@@ -18,22 +17,20 @@ public class FortiTokenMfaProvider : IMfaProvider
 {
     private readonly FortiTokenSettings _settings;
     private readonly FortiAuthClient _fortiClient;
+    private readonly IChallengeStore _store;
     private readonly ILogger<FortiTokenMfaProvider> _logger;
 
-    /// <summary>
-    /// In-memory store for pending challenges. In a production deployment this
-    /// would be backed by a distributed cache (e.g. Redis) so that any server node
-    /// can resolve the verification or push callback.
-    /// </summary>
-    private static readonly ConcurrentDictionary<string, PendingFortiChallenge> _pendingChallenges = new();
+    private const string ChallengePrefix = "forti:challenge:";
 
     public FortiTokenMfaProvider(
         FortiAuthClient fortiClient,
         IOptions<FortiTokenSettings> settings,
+        IChallengeStore store,
         ILogger<FortiTokenMfaProvider> logger)
     {
         _fortiClient = fortiClient;
         _settings = settings.Value;
+        _store = store;
         _logger = logger;
     }
 
@@ -198,7 +195,7 @@ public class FortiTokenMfaProvider : IMfaProvider
             return await IssuePushChallengeAsync(ctx, username, challengeId, expiresAt, ct);
         }
 
-        return IssueOtpChallenge(ctx, username, challengeId, expiresAt);
+        return await IssueOtpChallengeAsync(ctx, username, challengeId, expiresAt, ct);
     }
 
     /// <summary>
@@ -217,7 +214,8 @@ public class FortiTokenMfaProvider : IMfaProvider
             };
         }
 
-        if (!_pendingChallenges.TryGetValue(ctx.ChallengeId, out var challenge))
+        var challenge = await _store.GetAsync<PendingFortiChallenge>(ChallengePrefix + ctx.ChallengeId, ct);
+        if (challenge == null)
         {
             _logger.LogWarning(
                 "FortiToken verification attempted for unknown challenge {ChallengeId}",
@@ -232,8 +230,7 @@ public class FortiTokenMfaProvider : IMfaProvider
         // Check expiry
         if (DateTimeOffset.UtcNow > challenge.ExpiresAt)
         {
-            challenge.Status = ChallengeStatus.Expired;
-            _pendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning(
                 "FortiToken challenge {ChallengeId} expired for user {UserId}",
                 ctx.ChallengeId, ctx.UserId);
@@ -260,7 +257,7 @@ public class FortiTokenMfaProvider : IMfaProvider
         if (challenge.Attempts >= _settings.MaxAttempts)
         {
             challenge.Status = ChallengeStatus.Failed;
-            _pendingChallenges.TryRemove(ctx.ChallengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
             _logger.LogWarning(
                 "FortiToken challenge {ChallengeId} exceeded max attempts for user {UserId}",
                 ctx.ChallengeId, ctx.UserId);
@@ -273,7 +270,8 @@ public class FortiTokenMfaProvider : IMfaProvider
         }
 
         // Increment attempts
-        Interlocked.Increment(ref challenge.Attempts);
+        challenge.Attempts++;
+        await _store.SetAsync(ChallengePrefix + ctx.ChallengeId, challenge, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         // Validate OTP against FortiAuthenticator API
         var authResult = await _fortiClient.AuthenticateAsync(
@@ -296,7 +294,7 @@ public class FortiTokenMfaProvider : IMfaProvider
 
         // Success - remove the challenge
         challenge.Status = ChallengeStatus.Approved;
-        _pendingChallenges.TryRemove(ctx.ChallengeId, out _);
+        await _store.RemoveAsync(ChallengePrefix + ctx.ChallengeId, ct);
 
         _logger.LogInformation(
             "FortiToken verification succeeded for challenge {ChallengeId}, user {UserId}",
@@ -315,7 +313,8 @@ public class FortiTokenMfaProvider : IMfaProvider
     public async Task<AsyncVerificationStatus> CheckAsyncStatusAsync(
         string challengeId, CancellationToken ct = default)
     {
-        if (!_pendingChallenges.TryGetValue(challengeId, out var challenge))
+        var challenge = await _store.GetAsync<PendingFortiChallenge>(ChallengePrefix + challengeId, ct);
+        if (challenge == null)
         {
             return new AsyncVerificationStatus
             {
@@ -329,7 +328,7 @@ public class FortiTokenMfaProvider : IMfaProvider
             DateTimeOffset.UtcNow > challenge.ExpiresAt)
         {
             challenge.Status = ChallengeStatus.Expired;
-            _pendingChallenges.TryRemove(challengeId, out _);
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
 
             return new AsyncVerificationStatus
             {
@@ -342,8 +341,8 @@ public class FortiTokenMfaProvider : IMfaProvider
         // return that status directly.
         if (challenge.Status != ChallengeStatus.Issued)
         {
-            // Clean up resolved challenges from memory after reporting the final status.
-            _pendingChallenges.TryRemove(challengeId, out _);
+            // Clean up resolved challenges after reporting the final status.
+            await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
 
             return new AsyncVerificationStatus
             {
@@ -372,7 +371,7 @@ public class FortiTokenMfaProvider : IMfaProvider
                     case "allow":
                     case "accept":
                         challenge.Status = ChallengeStatus.Approved;
-                        _pendingChallenges.TryRemove(challengeId, out _);
+                        await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
                         _logger.LogInformation(
                             "FortiToken push approved for challenge {ChallengeId}", challengeId);
                         return new AsyncVerificationStatus
@@ -384,7 +383,7 @@ public class FortiTokenMfaProvider : IMfaProvider
                     case "deny":
                     case "reject":
                         challenge.Status = ChallengeStatus.Denied;
-                        _pendingChallenges.TryRemove(challengeId, out _);
+                        await _store.RemoveAsync(ChallengePrefix + challengeId, ct);
                         _logger.LogInformation(
                             "FortiToken push denied for challenge {ChallengeId}", challengeId);
                         return new AsyncVerificationStatus
@@ -460,7 +459,7 @@ public class FortiTokenMfaProvider : IMfaProvider
             PushSessionId = pushResult.SessionId,
             IsPush = true
         };
-        _pendingChallenges[challengeId] = pending;
+        await _store.SetAsync(ChallengePrefix + challengeId, pending, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         _logger.LogInformation(
             "FortiToken push challenge {ChallengeId} issued for user {UserId}, " +
@@ -481,11 +480,12 @@ public class FortiTokenMfaProvider : IMfaProvider
     /// <summary>
     /// Issues an OTP-only challenge (no push notification).
     /// </summary>
-    private ChallengeResult IssueOtpChallenge(
+    private async Task<ChallengeResult> IssueOtpChallengeAsync(
         ChallengeContext ctx,
         string username,
         string challengeId,
-        DateTimeOffset expiresAt)
+        DateTimeOffset expiresAt,
+        CancellationToken ct)
     {
         var pending = new PendingFortiChallenge
         {
@@ -495,7 +495,7 @@ public class FortiTokenMfaProvider : IMfaProvider
             PushSessionId = null,
             IsPush = false
         };
-        _pendingChallenges[challengeId] = pending;
+        await _store.SetAsync(ChallengePrefix + challengeId, pending, TimeSpan.FromMinutes(_settings.ChallengeExpiryMinutes + 1), ct);
 
         _logger.LogInformation(
             "FortiToken OTP challenge {ChallengeId} issued for user {UserId}, expires at {ExpiresAt}",
@@ -567,13 +567,13 @@ public class FortiTokenMfaProvider : IMfaProvider
     /// Represents a pending FortiToken challenge awaiting verification via
     /// either OTP entry or push notification approval.
     /// </summary>
-    private sealed class PendingFortiChallenge
+    internal sealed class PendingFortiChallenge
     {
         public ChallengeStatus Status { get; set; }
         public DateTimeOffset ExpiresAt { get; set; }
-        public required string Username { get; set; }
+        public string Username { get; set; } = string.Empty;
         public string? PushSessionId { get; set; }
         public bool IsPush { get; set; }
-        public int Attempts;  // Modified via Interlocked.Increment
+        public int Attempts { get; set; }
     }
 }

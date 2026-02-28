@@ -1,6 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using MfaSrv.Core.Interfaces;
 using MfaSrv.Cryptography;
+using MfaSrv.Provider.Push;
+using MfaSrv.Provider.Sms;
+using MfaSrv.Provider.Email;
+using MfaSrv.Provider.Fido2;
+using MfaSrv.Provider.FortiToken;
 using MfaSrv.Server;
 using MfaSrv.Server.Data;
 using MfaSrv.Server.GrpcServices;
@@ -50,8 +55,42 @@ builder.Services.AddScoped<IMfaChallengeOrchestrator, MfaChallengeOrchestrator>(
 builder.Services.AddScoped<IAuditLogger, AuditLogService>();
 builder.Services.AddScoped<IUserSyncService, UserSyncService>();
 
+// MFA Provider settings
+builder.Services.Configure<PushSettings>(builder.Configuration.GetSection("Providers:Push"));
+builder.Services.Configure<SmsSettings>(builder.Configuration.GetSection("Providers:Sms"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Providers:Email"));
+builder.Services.Configure<Fido2Settings>(builder.Configuration.GetSection("Providers:Fido2"));
+builder.Services.Configure<FortiTokenSettings>(builder.Configuration.GetSection("Providers:FortiToken"));
+
+// MFA Provider support services
+builder.Services.AddHttpClient<PushNotificationClient>();
+builder.Services.AddHttpClient<SmsGatewayClient>();
+builder.Services.AddSingleton<EmailSender>();
+builder.Services.AddHttpClient<FortiAuthClient>();
+
 // MFA Providers - register all available providers
 builder.Services.AddSingleton<IMfaProvider, MfaSrv.Provider.Totp.TotpMfaProvider>();
+builder.Services.AddSingleton<IMfaProvider, PushMfaProvider>();
+builder.Services.AddSingleton<IMfaProvider, SmsMfaProvider>();
+builder.Services.AddSingleton<IMfaProvider, EmailMfaProvider>();
+builder.Services.AddSingleton<IMfaProvider, Fido2MfaProvider>();
+builder.Services.AddSingleton<IMfaProvider, FortiTokenMfaProvider>();
+
+// Distributed cache (Redis or in-memory fallback)
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrEmpty(redisConnection))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnection;
+        options.InstanceName = "MfaSrv:";
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+builder.Services.AddSingleton<IChallengeStore, RedisChallengeStore>();
 
 // Backup services
 builder.Services.Configure<BackupSettings>(builder.Configuration.GetSection("Backup"));

@@ -17,6 +17,12 @@ import type {
   PolicyActionType,
   MfaMethod,
 } from '../types';
+import { Filter, Zap, X, Plus, Edit3, Trash2 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import LoadingSpinner from '../components/LoadingSpinner';
+import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useAppToast } from '../App';
 
 const FAILOVER_MODES: FailoverMode[] = ['FailOpen', 'FailClose', 'CachedOnly'];
 const RULE_TYPES: PolicyRuleType[] = [
@@ -26,7 +32,6 @@ const RULE_TYPES: PolicyRuleType[] = [
 const ACTION_TYPES: PolicyActionType[] = ['RequireMfa', 'Deny', 'Allow', 'AlertOnly'];
 const MFA_METHODS: (MfaMethod | '')[] = ['', 'Totp', 'Push', 'Fido2', 'FortiToken', 'Sms', 'Email'];
 
-// ── Blank form helpers ──
 function blankRule(): RuleRequest {
   return { ruleType: 'SourceGroup', operator: 'Equals', value: '', negate: false };
 }
@@ -58,16 +63,15 @@ function policyToForm(p: Policy): CreatePolicyRequest {
     isEnabled: p.isEnabled,
     priority: p.priority,
     failoverMode: p.failoverMode,
-    ruleGroups:
-      p.ruleGroups.map((g) => ({
-        order: g.order,
-        rules: g.rules.map((r) => ({
-          ruleType: r.ruleType,
-          operator: r.operator,
-          value: r.value,
-          negate: r.negate,
-        })),
+    ruleGroups: p.ruleGroups.map((g) => ({
+      order: g.order,
+      rules: g.rules.map((r) => ({
+        ruleType: r.ruleType,
+        operator: r.operator,
+        value: r.value,
+        negate: r.negate,
       })),
+    })),
     actions: p.actions.map((a) => ({
       actionType: a.actionType,
       requiredMethod: a.requiredMethod,
@@ -76,6 +80,7 @@ function policyToForm(p: Policy): CreatePolicyRequest {
 }
 
 export default function Policies() {
+  const { showSuccess, showError } = useAppToast();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,6 +91,9 @@ export default function Policies() {
   const [form, setForm] = useState<CreatePolicyRequest>(blankForm());
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Confirm delete
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -99,8 +107,6 @@ export default function Policies() {
   useEffect(() => {
     load();
   }, [load]);
-
-  // ── CRUD handlers ──
 
   function openCreate() {
     setEditId(null);
@@ -126,8 +132,10 @@ export default function Policies() {
     try {
       if (editId) {
         await updatePolicy(editId, form);
+        showSuccess('Policy updated');
       } else {
         await createPolicy(form);
+        showSuccess('Policy created');
       }
       setShowModal(false);
       load();
@@ -138,27 +146,30 @@ export default function Policies() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this policy?')) return;
+  async function handleDelete() {
+    if (!deleteTarget) return;
     try {
-      await deletePolicy(id);
+      await deletePolicy(deleteTarget);
+      showSuccess('Policy deleted');
+      setDeleteTarget(null);
       load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Delete failed');
+      showError(e instanceof Error ? e.message : 'Delete failed');
+      setDeleteTarget(null);
     }
   }
 
   async function handleToggle(id: string) {
     try {
-      await togglePolicy(id);
+      const result = await togglePolicy(id);
+      showSuccess(result.isEnabled ? 'Policy enabled' : 'Policy disabled');
       load();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Toggle failed');
+      showError(e instanceof Error ? e.message : 'Toggle failed');
     }
   }
 
-  // ── Form mutation helpers ──
-
+  // Form mutation helpers
   function updateField<K extends keyof CreatePolicyRequest>(key: K, value: CreatePolicyRequest[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
@@ -229,26 +240,30 @@ export default function Policies() {
     });
   }
 
-  // ── Render ──
-
   return (
     <div className="page">
-      <div className="page-header">
-        <div>
-          <h2>Policies</h2>
-          <p>Conditional MFA policies evaluated by priority</p>
-        </div>
+      <PageHeader title="Policies" subtitle="Conditional MFA policies evaluated by priority">
         <button className="btn btn-primary" onClick={openCreate}>
-          Create Policy
+          <Plus size={14} /> Create Policy
         </button>
-      </div>
+      </PageHeader>
 
       {error && <div className="error-banner">{error}</div>}
 
       <div className="card">
         <div className="table-container">
           {loading ? (
-            <div className="loading">Loading policies...</div>
+            <LoadingSpinner message="Loading policies..." />
+          ) : policies.length === 0 ? (
+            <EmptyState
+              title="No policies configured"
+              description="Create a policy to start enforcing MFA rules."
+              action={
+                <button className="btn btn-primary" onClick={openCreate}>
+                  <Plus size={14} /> Create Policy
+                </button>
+              }
+            />
           ) : (
             <table>
               <thead>
@@ -263,82 +278,80 @@ export default function Policies() {
                 </tr>
               </thead>
               <tbody>
-                {policies.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-muted" style={{ textAlign: 'center' }}>
-                      No policies configured
+                {policies.map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <span className="badge badge-neutral" style={{ fontWeight: 700, minWidth: 30, textAlign: 'center' }}>
+                        {p.priority}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{p.name}</strong>
+                      {p.description && (
+                        <div className="text-secondary" style={{ fontSize: 11 }}>
+                          {p.description}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${p.isEnabled ? 'badge-success' : 'badge-neutral'}`}
+                      >
+                        {p.isEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge badge-info">{p.failoverMode}</span>
+                    </td>
+                    <td>{p.ruleGroups.length}</td>
+                    <td>
+                      {p.actions.map((a, i) => (
+                        <span key={i} className="badge badge-warning" style={{ marginRight: 4 }}>
+                          {a.actionType}
+                          {a.requiredMethod ? ` (${a.requiredMethod})` : ''}
+                        </span>
+                      ))}
+                    </td>
+                    <td>
+                      <div className="flex-gap-8">
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => handleToggle(p.id)}
+                        >
+                          {p.isEnabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() => openEdit(p)}
+                          title="Edit"
+                        >
+                          <Edit3 size={13} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => setDeleteTarget(p.id)}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  policies.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.priority}</td>
-                      <td>
-                        <strong>{p.name}</strong>
-                        {p.description && (
-                          <div className="text-secondary" style={{ fontSize: 11 }}>
-                            {p.description}
-                          </div>
-                        )}
-                      </td>
-                      <td>
-                        <span
-                          className={`badge ${p.isEnabled ? 'badge-success' : 'badge-neutral'}`}
-                        >
-                          {p.isEnabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge badge-info">{p.failoverMode}</span>
-                      </td>
-                      <td>{p.ruleGroups.length}</td>
-                      <td>
-                        {p.actions.map((a, i) => (
-                          <span key={i} className="badge badge-warning" style={{ marginRight: 4 }}>
-                            {a.actionType}
-                            {a.requiredMethod ? ` (${a.requiredMethod})` : ''}
-                          </span>
-                        ))}
-                      </td>
-                      <td>
-                        <div className="flex-gap-8">
-                          <button
-                            className="btn btn-outline btn-sm"
-                            onClick={() => handleToggle(p.id)}
-                          >
-                            {p.isEnabled ? 'Disable' : 'Enable'}
-                          </button>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            onClick={() => openEdit(p)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => handleDelete(p.id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           )}
         </div>
       </div>
 
-      {/* ── Create / Edit modal ── */}
+      {/* Create / Edit modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editId ? 'Edit Policy' : 'Create Policy'}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)}>
-                Close
+              <button className="btn btn-outline btn-sm btn-icon" onClick={() => setShowModal(false)}>
+                <X size={16} />
               </button>
             </div>
             <div className="modal-body">
@@ -399,8 +412,10 @@ export default function Policies() {
                 </div>
               </div>
 
-              {/* ── Rule Groups ── */}
-              <h4 className="mb-8" style={{ fontSize: 14, fontWeight: 600 }}>Rule Groups</h4>
+              {/* Rule Groups */}
+              <h4 className="mb-8" style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Filter size={14} /> Rule Groups
+              </h4>
               <p className="text-secondary mb-8" style={{ fontSize: 12 }}>
                 Rules within a group are AND-combined. Groups are OR-combined.
               </p>
@@ -414,7 +429,7 @@ export default function Policies() {
                       onClick={() => removeRuleGroup(gi)}
                       type="button"
                     >
-                      Remove Group
+                      <X size={12} /> Remove
                     </button>
                   </div>
 
@@ -423,9 +438,7 @@ export default function Policies() {
                       <select
                         className="form-control"
                         value={rule.ruleType}
-                        onChange={(e) =>
-                          updateRule(gi, ri, { ruleType: e.target.value as PolicyRuleType })
-                        }
+                        onChange={(e) => updateRule(gi, ri, { ruleType: e.target.value as PolicyRuleType })}
                       >
                         {RULE_TYPES.map((t) => (
                           <option key={t} value={t}>{t}</option>
@@ -458,11 +471,11 @@ export default function Policies() {
                         Negate
                       </label>
                       <button
-                        className="btn btn-outline btn-sm"
+                        className="btn btn-outline btn-sm btn-icon"
                         onClick={() => removeRule(gi, ri)}
                         type="button"
                       >
-                        X
+                        <X size={14} />
                       </button>
                     </div>
                   ))}
@@ -472,7 +485,7 @@ export default function Policies() {
                     onClick={() => addRule(gi)}
                     type="button"
                   >
-                    + Add Rule
+                    <Plus size={12} /> Add Rule
                   </button>
                 </div>
               ))}
@@ -482,20 +495,20 @@ export default function Policies() {
                 onClick={addRuleGroup}
                 type="button"
               >
-                + Add Rule Group
+                <Plus size={12} /> Add Rule Group
               </button>
 
-              {/* ── Actions ── */}
-              <h4 className="mb-8" style={{ fontSize: 14, fontWeight: 600 }}>Actions</h4>
+              {/* Actions */}
+              <h4 className="mb-8" style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Zap size={14} /> Actions
+              </h4>
 
               {(form.actions ?? []).map((action, ai) => (
                 <div className="action-row" key={ai}>
                   <select
                     className="form-control"
                     value={action.actionType}
-                    onChange={(e) =>
-                      updateAction(ai, { actionType: e.target.value as PolicyActionType })
-                    }
+                    onChange={(e) => updateAction(ai, { actionType: e.target.value as PolicyActionType })}
                   >
                     {ACTION_TYPES.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -511,17 +524,15 @@ export default function Policies() {
                     }
                   >
                     {MFA_METHODS.map((m) => (
-                      <option key={m} value={m}>
-                        {m || '(any method)'}
-                      </option>
+                      <option key={m} value={m}>{m || '(any method)'}</option>
                     ))}
                   </select>
                   <button
-                    className="btn btn-outline btn-sm"
+                    className="btn btn-outline btn-sm btn-icon"
                     onClick={() => removeAction(ai)}
                     type="button"
                   >
-                    X
+                    <X size={14} />
                   </button>
                 </div>
               ))}
@@ -531,14 +542,11 @@ export default function Policies() {
                 onClick={addAction}
                 type="button"
               >
-                + Add Action
+                <Plus size={12} /> Add Action
               </button>
             </div>
             <div className="modal-footer">
-              <button
-                className="btn btn-outline"
-                onClick={() => setShowModal(false)}
-              >
+              <button className="btn btn-outline" onClick={() => setShowModal(false)}>
                 Cancel
               </button>
               <button
@@ -552,6 +560,17 @@ export default function Policies() {
           </div>
         </div>
       )}
+
+      {/* Confirm delete */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete Policy"
+        message="Are you sure you want to delete this policy? This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

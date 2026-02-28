@@ -232,6 +232,20 @@ export interface HourlyStat {
   failures: number;
 }
 
+// ── Backup types ──
+
+export interface BackupFileInfo {
+  fileName: string;
+  sizeBytes: number;
+  createdUtc: string;
+  lastModifiedUtc: string;
+}
+
+export interface BackupListResponse {
+  total: number;
+  data: BackupFileInfo[];
+}
+
 // ── Request DTOs ──
 
 export interface CreatePolicyRequest {

@@ -14,6 +14,7 @@ import type {
   BeginEnrollmentResponse,
   CompleteEnrollmentRequest,
   AuditEventType,
+  BackupListResponse,
 } from './types';
 
 // ── Generic helpers ──
@@ -195,6 +196,39 @@ export function revokeEnrollment(id: string): Promise<void> {
   return fetchApi<void>(`/api/enrollments/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+// ── Backups ──
+
+export function getBackups(): Promise<BackupListResponse> {
+  return fetchApi<BackupListResponse>('/api/backups');
+}
+
+export function createBackup(): Promise<{ fileName: string }> {
+  return fetchApi<{ fileName: string }>('/api/backups', { method: 'POST' });
+}
+
+export function requestRestore(
+  fileName: string
+): Promise<{ token: string }> {
+  return fetchApi<{ token: string }>('/api/backups/restore', {
+    method: 'POST',
+    body: JSON.stringify({ fileName, confirm: false }),
+  });
+}
+
+export function confirmRestore(
+  fileName: string,
+  token: string
+): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>('/api/backups/restore', {
+    method: 'POST',
+    body: JSON.stringify({ fileName, token, confirm: true }),
+  });
+}
+
+export function getBackupDownloadUrl(fileName: string): string {
+  return `/api/backups/${encodeURIComponent(fileName)}`;
 }
 
 // ── Self-enrollment ──

@@ -5,8 +5,8 @@
 
   Installs:
     - MfaSrv.DcAgent.exe as a Windows Service (auto-start, LocalSystem)
+    - All files (exe, DLLs, appsettings.json) to Program Files\MfaSrv\DcAgent\
     - MfaSrvLsaAuth.dll to System32 and registers it as an LSA Authentication Package
-    - appsettings.json to ProgramData\MfaSrv\DcAgent\ (preserved on upgrade)
 
   Build:  wix build -o MfaSrv.DcAgent.msi DcAgent.wxs -ext WixToolset.Util.wixext -d PublishDir=...\publish\DcAgent -d NativeDir=...\native -d Version=1.0.0.0
 -->
@@ -56,12 +56,6 @@
     </StandardDirectory>
 
     <StandardDirectory Id="System64Folder" />
-
-    <StandardDirectory Id="CommonAppDataFolder">
-      <Directory Id="MFASRV_APPDATA" Name="MfaSrv">
-        <Directory Id="CONFIGFOLDER" Name="DcAgent" />
-      </Directory>
-    </StandardDirectory>
 
     <!-- ====================================================================
          Component: Main service executable (carries ServiceInstall)
@@ -125,9 +119,9 @@
     </ComponentGroup>
 
     <!-- ====================================================================
-         Component: Configuration file (preserved across upgrades)
+         Component: Configuration file (in install dir, preserved across upgrades)
          ==================================================================== -->
-    <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
+    <ComponentGroup Id="ConfigComponents" Directory="DCAGENTFOLDER">
       <Component Id="AppSettingsConfig" Guid="F1A00000-DC01-0020-0000-A1FA5EA00001" NeverOverwrite="yes" Permanent="yes">
         <File Id="AppSettingsJson"
               Source="$(var.PublishDir)\appsettings.json"
@@ -142,7 +136,7 @@
     <SetProperty Id="WriteConfigCA"
                  Before="WriteConfigCA"
                  Sequence="execute"
-                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[CONFIGFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.DcAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.DcAgent.AgentId = '[AGENTID]'; $cfg.DcAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[CONFIGFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[DCAGENTFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.DcAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.DcAgent.AgentId = '[AGENTID]'; $cfg.DcAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[DCAGENTFOLDER]appsettings.json' -Encoding UTF8&quot;" />
 
     <CustomAction Id="WriteConfigCA"
                   BinaryRef="Wix4UtilCA_X64"

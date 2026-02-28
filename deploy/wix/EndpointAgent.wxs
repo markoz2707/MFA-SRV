@@ -5,8 +5,8 @@
 
   Installs:
     - MfaSrv.EndpointAgent.exe as a Windows Service (auto-start, LocalSystem)
-    - MfaSrvCredentialProvider.dll as a registered COM Credential Provider
-    - appsettings.json to ProgramData\MfaSrv\EndpointAgent\ (preserved on upgrade)
+    - All files (exe, DLLs, appsettings.json) to Program Files\MfaSrv\EndpointAgent\
+    - MfaSrvCredentialProvider.dll to System32 as a registered COM Credential Provider
 
   Build:  wix build -o MfaSrv.EndpointAgent.msi EndpointAgent.wxs -ext WixToolset.Util.wixext -d PublishDir=...\publish\EndpointAgent -d NativeDir=...\native -d Version=1.0.0.0
 -->
@@ -59,12 +59,6 @@
     </StandardDirectory>
 
     <StandardDirectory Id="System64Folder" />
-
-    <StandardDirectory Id="CommonAppDataFolder">
-      <Directory Id="MFASRV_APPDATA" Name="MfaSrv">
-        <Directory Id="CONFIGFOLDER" Name="EndpointAgent" />
-      </Directory>
-    </StandardDirectory>
 
     <!-- ====================================================================
          Component: Main service executable (carries ServiceInstall)
@@ -134,9 +128,9 @@
     </ComponentGroup>
 
     <!-- ====================================================================
-         Component: Configuration file (preserved across upgrades)
+         Component: Configuration file (in install dir, preserved across upgrades)
          ==================================================================== -->
-    <ComponentGroup Id="ConfigComponents" Directory="CONFIGFOLDER">
+    <ComponentGroup Id="ConfigComponents" Directory="ENDPOINTAGENTFOLDER">
       <Component Id="AppSettingsConfig" Guid="F2A00000-E901-0020-0000-A1FA5EA00001" NeverOverwrite="yes" Permanent="yes">
         <File Id="AppSettingsJson"
               Source="$(var.PublishDir)\appsettings.json"
@@ -151,7 +145,7 @@
     <SetProperty Id="WriteConfigCA"
                  Before="WriteConfigCA"
                  Sequence="execute"
-                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[CONFIGFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.EndpointAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.EndpointAgent.AgentId = '[AGENTID]'; $cfg.EndpointAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[CONFIGFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[ENDPOINTAGENTFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.EndpointAgent.CentralServerUrl = '[CENTRALSERVERURL]'; $cfg.EndpointAgent.AgentId = '[AGENTID]'; $cfg.EndpointAgent.FailoverMode = '[FAILOVERMODE]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[ENDPOINTAGENTFOLDER]appsettings.json' -Encoding UTF8&quot;" />
 
     <CustomAction Id="WriteConfigCA"
                   BinaryRef="Wix4UtilCA_X64"

@@ -113,6 +113,13 @@ function Find-MSBuild {
 }
 
 function Test-WixInstalled {
+    $wixPath = Get-Command wix -ErrorAction SilentlyContinue
+    if (-not $wixPath) {
+        # Also check .NET global tools path
+        $globalToolsWix = Join-Path $env:USERPROFILE ".dotnet\tools\wix.exe"
+        if (Test-Path $globalToolsWix) { return $true }
+        return $false
+    }
     try {
         $null = & wix --version 2>$null
         return $LASTEXITCODE -eq 0

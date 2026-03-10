@@ -51,7 +51,7 @@ $Components = @(
         Project     = "src\Server\MfaSrv.Server\MfaSrv.Server.csproj"
         PublishDir  = Join-Path $PublishRoot "Server"
         WixFile     = Join-Path $WixDir "Server.wxs"
-        WixExt      = @("-ext", "WixToolset.Util.wixext", "-ext", "WixToolset.Firewall.wixext")
+        WixExt      = @("-ext", "WixToolset.Util.wixext", "-ext", "WixToolset.Firewall.wixext", "-ext", "WixToolset.UI.wixext")
         NativeProj  = $null
         NativeDll   = $null
     },
@@ -60,7 +60,7 @@ $Components = @(
         Project     = "src\Agents\MfaSrv.DcAgent\MfaSrv.DcAgent.csproj"
         PublishDir  = Join-Path $PublishRoot "DcAgent"
         WixFile     = Join-Path $WixDir "DcAgent.wxs"
-        WixExt      = @("-ext", "WixToolset.Util.wixext")
+        WixExt      = @("-ext", "WixToolset.Util.wixext", "-ext", "WixToolset.UI.wixext")
         NativeProj  = "src\Agents\MfaSrv.DcAgent.Native\MfaSrv.DcAgent.Native.vcxproj"
         NativeDll   = "MfaSrvLsaAuth.dll"
     },
@@ -69,7 +69,7 @@ $Components = @(
         Project     = "src\Agents\MfaSrv.EndpointAgent\MfaSrv.EndpointAgent.csproj"
         PublishDir  = Join-Path $PublishRoot "EndpointAgent"
         WixFile     = Join-Path $WixDir "EndpointAgent.wxs"
-        WixExt      = @("-ext", "WixToolset.Util.wixext")
+        WixExt      = @("-ext", "WixToolset.Util.wixext", "-ext", "WixToolset.UI.wixext")
         NativeProj  = "src\Agents\MfaSrv.EndpointAgent.Native\MfaSrv.EndpointAgent.Native.vcxproj"
         NativeDll   = "MfaSrvCredentialProvider.dll"
     }
@@ -130,6 +130,174 @@ function Test-WixInstalled {
 }
 
 # ============================================================================
+#  Step 0: Prerequisites check and auto-install
+# ============================================================================
+
+Write-Header "Step 0: Prerequisites"
+
+$prereqOk = $true
+
+# --- .NET SDK ---
+$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+if ($dotnetCmd) {
+    $dotnetVersion = & dotnet --version 2>$null
+    Write-Ok ".NET SDK $dotnetVersion"
+}
+else {
+    Write-Host "  [MISSING] .NET SDK" -ForegroundColor Red
+    Write-Step "Installing .NET SDK via winget..."
+    $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+    if ($wingetCmd) {
+        & winget install Microsoft.DotNet.SDK.8 --accept-source-agreements --accept-package-agreements --silent 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok ".NET SDK installed. Please restart your terminal and re-run the script."
+        }
+        else {
+            Write-Warning "Failed to install .NET SDK via winget. Install manually from https://dotnet.microsoft.com/download"
+        }
+    }
+    else {
+        Write-Warning "winget not available. Install .NET SDK manually from https://dotnet.microsoft.com/download"
+    }
+    $prereqOk = $false
+}
+
+# --- Node.js / npm (for admin portal) ---
+if (-not $SkipAdminPortal) {
+    $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+    if ($npmCmd) {
+        $npmVersion = & npm --version 2>$null
+        $nodeVersion = & node --version 2>$null
+        Write-Ok "Node.js $nodeVersion / npm $npmVersion"
+    }
+    else {
+        Write-Host "  [MISSING] Node.js / npm" -ForegroundColor Red
+        Write-Step "Installing Node.js via winget..."
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            & winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok "Node.js installed. Please restart your terminal and re-run the script."
+            }
+            else {
+                Write-Warning "Failed to install Node.js via winget. Install manually from https://nodejs.org/"
+            }
+        }
+        else {
+            Write-Warning "winget not available. Install Node.js manually from https://nodejs.org/"
+        }
+        $prereqOk = $false
+    }
+}
+else {
+    Write-Skip "Node.js check skipped (admin portal skipped)"
+}
+
+# --- MSBuild / Visual Studio (for C++ native builds) ---
+if (-not $SkipNative) {
+    $msbuildPath = Find-MSBuild
+    if ($msbuildPath) {
+        Write-Ok "MSBuild found: $msbuildPath"
+    }
+    else {
+        Write-Host "  [MISSING] MSBuild (Visual Studio C++ Build Tools)" -ForegroundColor Red
+        Write-Step "Installing VS Build Tools with C++ workload via winget..."
+        $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
+        if ($wingetCmd) {
+            & winget install Microsoft.VisualStudio.2022.BuildTools --accept-source-agreements --accept-package-agreements --silent --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet --wait" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok "VS Build Tools installed. Please restart your terminal and re-run the script."
+            }
+            else {
+                Write-Warning "Failed to install VS Build Tools via winget. Install manually from https://visualstudio.microsoft.com/downloads/"
+            }
+        }
+        else {
+            Write-Warning "winget not available. Install Visual Studio Build Tools with C++ workload manually."
+        }
+        $prereqOk = $false
+    }
+}
+else {
+    Write-Skip "MSBuild check skipped (native builds skipped)"
+}
+
+# --- WiX toolset (for MSI generation) ---
+if (-not $SkipMsi) {
+    if (Test-WixInstalled) {
+        $globalToolsWix = Join-Path $env:USERPROFILE ".dotnet\tools\wix.exe"
+        if (Test-Path $globalToolsWix) {
+            $wixVer = & $globalToolsWix --version 2>$null
+        }
+        else {
+            $wixVer = & wix --version 2>$null
+        }
+        Write-Ok "WiX toolset $wixVer"
+
+        # Check required WiX extensions
+        $requiredExts = @("WixToolset.Util.wixext", "WixToolset.Firewall.wixext", "WixToolset.UI.wixext")
+        $wixExe = if (Test-Path $globalToolsWix) { $globalToolsWix } else { "wix" }
+        $installedExts = & $wixExe extension list 2>$null
+        foreach ($ext in $requiredExts) {
+            if ($installedExts -match $ext) {
+                Write-Ok "WiX extension: $ext"
+            }
+            else {
+                Write-Step "Installing WiX extension: $ext..."
+                & $wixExe extension add "$ext/6.0.0" 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Ok "WiX extension installed: $ext"
+                }
+                else {
+                    Write-Warning "Failed to install WiX extension: $ext. Run manually: wix extension add $ext"
+                    $prereqOk = $false
+                }
+            }
+        }
+    }
+    else {
+        Write-Host "  [MISSING] WiX toolset" -ForegroundColor Red
+        Write-Step "Installing WiX toolset as .NET global tool..."
+        if ($dotnetCmd) {
+            & dotnet tool install -g wix 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Ok "WiX toolset installed"
+                # Install required extensions
+                $globalToolsWix = Join-Path $env:USERPROFILE ".dotnet\tools\wix.exe"
+                foreach ($ext in @("WixToolset.Util.wixext/6.0.0", "WixToolset.Firewall.wixext/6.0.0", "WixToolset.UI.wixext/6.0.0")) {
+                    & $globalToolsWix extension add $ext 2>$null
+                    Write-Ok "WiX extension installed: $ext"
+                }
+            }
+            else {
+                Write-Warning "Failed to install WiX toolset. Run manually: dotnet tool install -g wix"
+                $prereqOk = $false
+            }
+        }
+        else {
+            Write-Warning "Cannot install WiX without .NET SDK."
+            $prereqOk = $false
+        }
+    }
+}
+else {
+    Write-Skip "WiX check skipped (MSI generation skipped)"
+}
+
+# --- Prerequisite summary ---
+if (-not $prereqOk) {
+    Write-Host ""
+    Write-Host "  Some prerequisites were missing and may have been installed." -ForegroundColor Yellow
+    Write-Host "  If tools were just installed, restart your terminal and re-run the script." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Error "Prerequisites check failed. Resolve the issues above and re-run."
+    exit 1
+}
+
+Write-Host ""
+Write-Ok "All prerequisites satisfied"
+
+# ============================================================================
 #  Preparation
 # ============================================================================
 
@@ -170,6 +338,45 @@ foreach ($comp in $Components) {
 
     $fileCount = (Get-ChildItem $comp.PublishDir -File).Count
     Write-Ok "$($comp.Name) published ($fileCount files)"
+
+    # Publish the Server Configurator alongside the Server
+    if ($comp.Name -eq "Server") {
+        $configuratorProj = Join-Path $RepoRoot "src\Server\MfaSrv.Server.Configurator\MfaSrv.Server.Configurator.csproj"
+        if (Test-Path $configuratorProj) {
+            Write-Step "Publishing Server Configurator..."
+            $configuratorPublishDir = Join-Path $PublishRoot "ServerConfigurator"
+            dotnet publish $configuratorProj `
+                --configuration $Configuration `
+                --output $configuratorPublishDir `
+                --no-self-contained `
+                -p:Version=$Version `
+                -p:PublishReadyToRun=false
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to publish Server Configurator. Continuing..."
+            }
+            else {
+                # Copy configurator files to Server publish dir
+                $configuratorExe = Join-Path $configuratorPublishDir "MfaSrv.Server.Configurator.exe"
+                $configuratorDll = Join-Path $configuratorPublishDir "MfaSrv.Server.Configurator.dll"
+                $configuratorDeps = Join-Path $configuratorPublishDir "MfaSrv.Server.Configurator.deps.json"
+                $configuratorRc = Join-Path $configuratorPublishDir "MfaSrv.Server.Configurator.runtimeconfig.json"
+                foreach ($f in @($configuratorExe, $configuratorDll, $configuratorDeps, $configuratorRc)) {
+                    if (Test-Path $f) {
+                        Copy-Item $f $comp.PublishDir -Force
+                    }
+                }
+                # Copy unique dependency DLLs (not already in Server publish)
+                Get-ChildItem $configuratorPublishDir -Filter "*.dll" | ForEach-Object {
+                    $destFile = Join-Path $comp.PublishDir $_.Name
+                    if (-not (Test-Path $destFile)) {
+                        Copy-Item $_.FullName $comp.PublishDir -Force
+                    }
+                }
+                Write-Ok "Server Configurator published"
+            }
+        }
+    }
 }
 
 # ============================================================================
@@ -313,6 +520,7 @@ if (-not $SkipMsi) {
             $wixArgs = @(
                 "build"
                 $comp.WixFile
+                "-arch", "x64"
                 "-o", $msiPath
                 "-d", "PublishDir=$($comp.PublishDir)"
                 "-d", "NativeDir=$nativeDir"

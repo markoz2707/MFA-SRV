@@ -5,16 +5,21 @@
 
   Installs:
     - MfaSrv.Server as a Windows Service (auto-start) or standalone application
+    - MfaSrv.Server.Configurator for first-run configuration
     - All files (exe, DLLs, appsettings.json) to Program Files\MfaSrv\Server\
     - SQLite data directory at ProgramData\MfaSrv\Server\ (writable at runtime)
     - Firewall rules for HTTP (5080) and gRPC (5081)
 
-  Build:  wix build -o MfaSrv.Server.msi Server.wxs -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext -d PublishDir=...\publish\Server -d Version=1.0.0.0
+  After installation, the configurator launches to set LDAP/ports/encryption,
+  then starts the service. For silent installs, pass MSI properties instead.
+
+  Build:  wix build -o MfaSrv.Server.msi Server.wxs -ext WixToolset.Util.wixext -ext WixToolset.Firewall.wixext -ext WixToolset.UI.wixext -d PublishDir=...\publish\Server -d Version=1.0.0.0
 -->
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
-     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall">
+     xmlns:fw="http://wixtoolset.org/schemas/v4/wxs/firewall"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <!-- ======================================================================
        Package metadata
@@ -36,11 +41,14 @@
     <MediaTemplate EmbedCab="yes" />
 
     <!-- ====================================================================
-         Public properties (configurable via msiexec or UI)
+         Public properties (configurable via msiexec for silent installs)
          ==================================================================== -->
     <Property Id="DB_CONNECTION_STRING" Value="Data Source=C:\ProgramData\MfaSrv\Server\mfasrv.db" Secure="yes" />
     <Property Id="LDAP_SERVER" Secure="yes" />
+    <Property Id="LDAP_PORT" Value="389" Secure="yes" />
+    <Property Id="BASE_DN" Secure="yes" />
     <Property Id="BIND_DN" Secure="yes" />
+    <Property Id="BIND_PASSWORD" Secure="yes" Hidden="yes" />
     <Property Id="HTTP_PORT" Value="5080" Secure="yes" />
     <Property Id="GRPC_PORT" Value="5081" Secure="yes" />
 
@@ -48,9 +56,29 @@
     <Property Id="INSTALL_MODE" Value="service" Secure="yes" />
 
     <!-- ====================================================================
+         UI: standard WixUI_InstallDir
+         ==================================================================== -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <!-- Launch configurator after install completes (Type 18: FileRef + ExeCommand) -->
+    <CustomAction Id="LaunchConfigurator"
+                  FileRef="MfaSrvConfiguratorExe"
+                  ExeCommand=""
+                  Return="asyncNoWait" />
+
+    <!-- ====================================================================
          Launch conditions
          ==================================================================== -->
+    <!-- .NET 8 Runtime detection via file search -->
+    <Property Id="DOTNET_RUNTIME_FOUND">
+      <DirectorySearch Id="DotNetDirSearch" Path="[ProgramFiles64Folder]dotnet" Depth="0">
+        <FileSearch Id="DotNetExeSearch" Name="dotnet.exe" />
+      </DirectorySearch>
+    </Property>
+
     <Launch Condition="Privileged" Message="Administrator privileges are required to install MfaSrv Server." />
+    <Launch Condition="Installed OR DOTNET_RUNTIME_FOUND"
+            Message="[ProductName] requires the .NET 8.0 Runtime (x64). Download it from https://dotnet.microsoft.com/download/dotnet/8.0 and install the ASP.NET Core Runtime or the Hosting Bundle." />
 
     <!-- ====================================================================
          Directory structure
@@ -69,6 +97,7 @@
 
     <!-- ====================================================================
          Component: Main server executable (carries ServiceInstall)
+         Service is NOT auto-started; the configurator starts it after setup.
          ==================================================================== -->
     <ComponentGroup Id="ServerComponents" Directory="SERVERFOLDER">
       <Component Id="ServerExecutable" Guid="F3A00000-5A01-0001-0000-A1FA5EA00001" Bitness="always64">
@@ -76,7 +105,7 @@
               Source="$(var.PublishDir)\MfaSrv.Server.exe"
               KeyPath="yes" />
 
-        <!-- Windows Service definition (conditioned on INSTALL_MODE) -->
+        <!-- Windows Service definition -->
         <ServiceInstall Id="MfaSrvServerService"
                         Name="MfaSrvServer"
                         DisplayName="MfaSrv Server"
@@ -94,17 +123,36 @@
                               ResetPeriodInDays="1" />
         </ServiceInstall>
 
+        <!-- Do NOT start on install (configurator handles that).
+             Stop on uninstall/upgrade, remove on uninstall. -->
         <ServiceControl Id="MfaSrvServerServiceControl"
                         Name="MfaSrvServer"
-                        Start="install"
                         Stop="both"
                         Remove="uninstall"
                         Wait="yes" />
       </Component>
 
+      <!-- Configurator executable -->
+      <Component Id="ConfiguratorExecutable" Guid="F3A00000-5A01-0050-0000-A1FA5EA00001" Bitness="always64">
+        <File Id="MfaSrvConfiguratorExe"
+              Source="$(var.PublishDir)\MfaSrv.Server.Configurator.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Event Log source registration -->
+      <Component Id="EventLogSource" Guid="F3A00000-5A01-0040-0000-A1FA5EA00001">
+        <util:EventSource Name="MfaSrv Server" Log="Application"
+          EventMessageFile="%systemroot%\Microsoft.NET\Framework64\v4.0.30319\EventLogMessages.dll"
+          SupportsErrors="yes" SupportsWarnings="yes" SupportsInformationals="yes" />
+      </Component>
+
       <!-- All published runtime files (DLLs, deps, runtimeconfig, wwwroot, etc.) -->
       <Files Include="$(var.PublishDir)\**">
         <Exclude Files="$(var.PublishDir)\MfaSrv.Server.exe" />
+        <Exclude Files="$(var.PublishDir)\MfaSrv.Server.Configurator.exe" />
+        <Exclude Files="$(var.PublishDir)\MfaSrv.Server.Configurator.dll" />
+        <Exclude Files="$(var.PublishDir)\MfaSrv.Server.Configurator.deps.json" />
+        <Exclude Files="$(var.PublishDir)\MfaSrv.Server.Configurator.runtimeconfig.json" />
         <Exclude Files="$(var.PublishDir)\appsettings*.json" />
       </Files>
     </ComponentGroup>
@@ -159,19 +207,27 @@
     </ComponentGroup>
 
     <!-- ====================================================================
-         Custom actions: write runtime configuration from MSI properties
+         Custom actions: write config from MSI properties (silent installs)
          ==================================================================== -->
     <SetProperty Id="WriteConfigCA"
                  Before="WriteConfigCA"
                  Sequence="execute"
-                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$cfg = Get-Content '[SERVERFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.ConnectionStrings.DefaultConnection = '[DB_CONNECTION_STRING]'; if ('[LDAP_SERVER]') { $cfg.Ldap.Server = '[LDAP_SERVER]' }; if ('[BIND_DN]') { $cfg.Ldap.BindDn = '[BIND_DN]' }; $cfg.Kestrel.Endpoints.Http.Url = 'http://0.0.0.0:[HTTP_PORT]'; $cfg.Kestrel.Endpoints.Grpc.Url = 'http://0.0.0.0:[GRPC_PORT]'; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[SERVERFOLDER]appsettings.json' -Encoding UTF8&quot;" />
+                 Value="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command &quot;$bytes = New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes); $encKey = [Convert]::ToBase64String($bytes); $cfg = Get-Content '[SERVERFOLDER]appsettings.json' -Raw | ConvertFrom-Json; $cfg.ConnectionStrings.DefaultConnection = '[DB_CONNECTION_STRING]'; $cfg.Ldap.Server = '[LDAP_SERVER]'; $cfg.Ldap.Port = [int]'[LDAP_PORT]'; $cfg.Ldap.BaseDn = '[BASE_DN]'; $cfg.Ldap.BindDn = '[BIND_DN]'; $cfg.Ldap.BindPassword = '[BIND_PASSWORD]'; $cfg.Kestrel.Endpoints.Http.Url = 'http://0.0.0.0:[HTTP_PORT]'; $cfg.Kestrel.Endpoints.Grpc.Url = 'http://0.0.0.0:[GRPC_PORT]'; $cfg.MfaSrv.EncryptionKey = $encKey; $cfg | ConvertTo-Json -Depth 10 | Set-Content '[SERVERFOLDER]appsettings.json' -Encoding UTF8&quot;" />
 
     <CustomAction Id="WriteConfigCA"
                   BinaryRef="Wix4UtilCA_X64"
                   DllEntry="WixQuietExec64"
                   Execute="deferred"
                   Impersonate="no"
-                  Return="check" />
+                  Return="ignore" />
+
+    <!-- Start service after silent install (only when LDAP_SERVER is provided) -->
+    <CustomAction Id="StartServiceCA"
+                  Directory="System64Folder"
+                  ExeCommand="net.exe start MfaSrvServer"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
 
     <!-- ====================================================================
          Feature tree
@@ -187,7 +243,11 @@
          Install sequence
          ==================================================================== -->
     <InstallExecuteSequence>
-      <Custom Action="WriteConfigCA" After="InstallFiles" Condition="NOT Installed" />
+      <!-- Silent installs with LDAP_SERVER: write config + start service -->
+      <Custom Action="WriteConfigCA" After="InstallFiles" Condition="NOT Installed AND LDAP_SERVER" />
+      <Custom Action="StartServiceCA" After="WriteConfigCA" Condition="NOT Installed AND LDAP_SERVER" />
+      <!-- Interactive installs: launch configurator after install finishes -->
+      <Custom Action="LaunchConfigurator" After="InstallFinalize" Condition="NOT Installed AND NOT LDAP_SERVER" />
     </InstallExecuteSequence>
 
   </Package>

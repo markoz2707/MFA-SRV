@@ -8,7 +8,17 @@
       "Bash(grep:*)",
       "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet build MfaSrv.sln 2>&1)",
       "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet test tests/MfaSrv.Tests.Unit/MfaSrv.Tests.Unit.csproj --no-build --verbosity normal 2>&1)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(cd \"I:/AI Projects/MFA-SRV/src/AdminPortal/mfasrv-admin\" && npm run build 2>&1)",
+      "Bash(dotnet tool:*)",
+      "Bash(powershell:*)",
+      "Bash(~/.dotnet/tools/wix extension:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.firegiant.com)",
+      "Bash(ls:*)",
+      "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet build src/Server/MfaSrv.Server/ --no-incremental 2>&1)",
+      "Bash(cd \"I:/AI Projects/MFA-SRV\" && dotnet test tests/MfaSrv.Tests.Unit/ --no-restore --verbosity minimal 2>&1)",
+      "Bash(wix:*)"
     ]
   }
 }

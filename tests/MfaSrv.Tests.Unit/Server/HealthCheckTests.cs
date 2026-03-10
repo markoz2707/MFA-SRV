@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -32,10 +33,22 @@ public class HealthCheckTests : IDisposable
         var db = scope.ServiceProvider.GetRequiredService<MfaSrvDbContext>();
         db.Database.EnsureCreated();
 
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Ldap:Server"] = "configured.example.com",
+                ["Ldap:BindDn"] = "CN=configured",
+                ["MfaSrv:EncryptionKey"] = Convert.ToBase64String(new byte[32])
+            })
+            .Build();
+        var env = new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { ContentRootPath = Path.GetTempPath() };
+        var setupService = new SetupService(config, env, NullLogger<SetupService>.Instance);
+
         _leaderService = new LeaderElectionService(
             _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(new HaSettings { Enabled = false, InstanceId = "test" }),
-            NullLogger<LeaderElectionService>.Instance);
+            NullLogger<LeaderElectionService>.Instance,
+            setupService);
     }
 
     private MfaSrvHealthCheck CreateHealthCheck()

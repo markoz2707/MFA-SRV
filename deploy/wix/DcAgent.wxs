@@ -12,7 +12,8 @@
 -->
 
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
 
   <!-- ======================================================================
        Package metadata
@@ -40,11 +41,23 @@
     <Property Id="AGENTID" Secure="yes" />
     <Property Id="FAILOVERMODE" Value="FailOpen" Secure="yes" />
 
+    <!-- WiX UI: show installation wizard with directory selection -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
     <!-- ====================================================================
          Launch conditions
          ==================================================================== -->
+    <!-- .NET 8 Runtime detection via file search -->
+    <Property Id="DOTNET_RUNTIME_FOUND">
+      <DirectorySearch Id="DotNetDirSearch" Path="[ProgramFiles64Folder]dotnet" Depth="0">
+        <FileSearch Id="DotNetExeSearch" Name="dotnet.exe" />
+      </DirectorySearch>
+    </Property>
+
     <Launch Condition="Privileged" Message="Administrator privileges are required to install the MfaSrv DC Agent." />
     <Launch Condition="VersionNT64" Message="MfaSrv DC Agent requires a 64-bit version of Windows." />
+    <Launch Condition="Installed OR DOTNET_RUNTIME_FOUND"
+            Message="[ProductName] requires the .NET 8.0 Runtime (x64). Download it from https://dotnet.microsoft.com/download/dotnet/8.0" />
 
     <!-- ====================================================================
          Directory structure

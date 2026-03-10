@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using MfaSrv.Server;
@@ -28,6 +30,20 @@ public class LeaderElectionServiceTests : IDisposable
         db.Database.EnsureCreated();
     }
 
+    private static SetupService CreateSetupService()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Ldap:Server"] = "configured.example.com",
+                ["Ldap:BindDn"] = "CN=configured",
+                ["MfaSrv:EncryptionKey"] = Convert.ToBase64String(new byte[32])
+            })
+            .Build();
+        var env = new Microsoft.Extensions.Hosting.Internal.HostingEnvironment { ContentRootPath = Path.GetTempPath() };
+        return new SetupService(config, env, NullLogger<SetupService>.Instance);
+    }
+
     private LeaderElectionService CreateService(HaSettings? settings = null)
     {
         var haSettings = settings ?? new HaSettings
@@ -41,7 +57,8 @@ public class LeaderElectionServiceTests : IDisposable
         return new LeaderElectionService(
             _serviceProvider.GetRequiredService<IServiceScopeFactory>(),
             Options.Create(haSettings),
-            NullLogger<LeaderElectionService>.Instance);
+            NullLogger<LeaderElectionService>.Instance,
+            CreateSetupService());
     }
 
     [Fact]

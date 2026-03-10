@@ -30,14 +30,18 @@ public class LeaderElectionService : BackgroundService
     public bool IsLeader => _isLeader;
     public string InstanceId => _instanceId;
 
+    private readonly SetupService _setupService;
+
     public LeaderElectionService(
         IServiceScopeFactory scopeFactory,
         IOptions<HaSettings> settings,
-        ILogger<LeaderElectionService> logger)
+        ILogger<LeaderElectionService> logger,
+        SetupService setupService)
     {
         _scopeFactory = scopeFactory;
         _settings = settings.Value;
         _logger = logger;
+        _setupService = setupService;
         _instanceId = _settings.InstanceId;
 
         if (string.IsNullOrEmpty(_instanceId))
@@ -48,6 +52,13 @@ public class LeaderElectionService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_setupService.IsSetupRequired())
+        {
+            _isLeader = true;
+            _logger.LogInformation("Leader election paused - awaiting initial setup");
+            return;
+        }
+
         if (!_settings.Enabled)
         {
             // Single-instance mode: always leader

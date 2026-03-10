@@ -102,8 +102,9 @@ public class SessionManager : ISessionManager
 
     public async Task CleanupExpiredSessionsAsync(CancellationToken ct = default)
     {
+        var now = DateTimeOffset.UtcNow;
         var expired = await _db.MfaSessions
-            .Where(s => s.Status == SessionStatus.Active && s.ExpiresAt < DateTimeOffset.UtcNow)
+            .Where(s => s.Status == SessionStatus.Active && s.ExpiresAt < now)
             .ToListAsync(ct);
 
         foreach (var session in expired)

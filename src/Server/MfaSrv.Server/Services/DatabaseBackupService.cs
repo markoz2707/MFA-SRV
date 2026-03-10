@@ -15,20 +15,29 @@ public class DatabaseBackupService : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly IOptionsMonitor<BackupSettings> _settingsMonitor;
     private readonly ILogger<DatabaseBackupService> _logger;
+    private readonly SetupService _setupService;
     private readonly SemaphoreSlim _backupLock = new(1, 1);
 
     public DatabaseBackupService(
         IConfiguration configuration,
         IOptionsMonitor<BackupSettings> settingsMonitor,
-        ILogger<DatabaseBackupService> logger)
+        ILogger<DatabaseBackupService> logger,
+        SetupService setupService)
     {
         _configuration = configuration;
         _settingsMonitor = settingsMonitor;
         _logger = logger;
+        _setupService = setupService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_setupService.IsSetupRequired())
+        {
+            _logger.LogInformation("Database backup service paused - awaiting initial setup");
+            return;
+        }
+
         var settings = _settingsMonitor.CurrentValue;
 
         if (!settings.Enabled)

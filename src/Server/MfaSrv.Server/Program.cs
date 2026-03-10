@@ -9,10 +9,16 @@ using MfaSrv.Provider.FortiToken;
 using MfaSrv.Server;
 using MfaSrv.Server.Data;
 using MfaSrv.Server.GrpcServices;
+using MfaSrv.Server.Middleware;
 using MfaSrv.Server.Services;
 using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "MfaSrvServer";
+});
 
 // Database
 builder.Services.AddDbContext<MfaSrvDbContext>(options =>
@@ -111,6 +117,9 @@ builder.Services.AddHealthChecks()
 // Background services
 builder.Services.AddHostedService<SessionCleanupService>();
 
+// First-run setup wizard
+builder.Services.AddSingleton<SetupService>();
+
 // CORS for admin portal
 builder.Services.AddCors(options =>
 {
@@ -125,14 +134,24 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Auto-migrate database
-using (var scope = app.Services.CreateScope())
+// Check if first-run setup is needed
+var setupService = app.Services.GetRequiredService<SetupService>();
+if (!setupService.IsSetupRequired())
 {
+    // Auto-migrate database (only when properly configured)
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<MfaSrvDbContext>();
     db.Database.EnsureCreated();
 }
+else
+{
+    app.Logger.LogWarning("MfaSrv Server is not configured. Navigate to http://localhost:5080/setup to complete initial setup.");
+}
 
 app.UseCors("AdminPortal");
+
+// First-run setup wizard redirect
+app.UseMiddleware<SetupRedirectMiddleware>();
 
 // Serve admin portal SPA from wwwroot/
 app.UseStaticFiles();
